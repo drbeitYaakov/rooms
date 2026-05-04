@@ -1,0 +1,8 @@
+{
+  "/page": "app/page.js",
+  "/assignments/override/page": "app/assignments/override/page.js",
+  "/rooms/page": "app/rooms/page.js",
+  "/homerooms/page": "app/homerooms/page.js",
+  "/study-groups/page": "app/study-groups/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js"
+}

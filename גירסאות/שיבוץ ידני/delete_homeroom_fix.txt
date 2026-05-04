@@ -1,0 +1,58 @@
+// Delete homeroom
+router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    logger.info(`Attempting to delete homeroom with ID: ${id}`);
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID is required'
+      });
+    }
+    
+    // Check if homeroom exists
+    const existingQuery = await db.raw(
+      'SELECT * FROM homerooms WHERE id = $1',
+      [id]
+    );
+    
+    if (existingQuery.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Homeroom not found'
+      });
+    }
+    
+    // Check if there are active assignments
+    const assignmentsQuery = await db.raw(
+      'SELECT COUNT(*) as count FROM assignments WHERE room_id = (SELECT room_id FROM homerooms WHERE id = $1) AND date >= CURRENT_DATE',
+      [id]
+    );
+    
+    if (assignmentsQuery.rows[0].count > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete homeroom with active assignments'
+      });
+    }
+    
+    // Delete homeroom
+    await db.raw('DELETE FROM homerooms WHERE id = $1', [id]);
+    
+    logger.info(`Deleted homeroom ID: ${id}`);
+    
+    res.json({
+      success: true,
+      message: 'Homeroom deleted successfully'
+    });
+    
+  } catch (error) {
+    logger.error('Error deleting homeroom:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete homeroom'
+    });
+  }
+});

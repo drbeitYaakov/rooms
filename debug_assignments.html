@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Assignments</title>
+</head>
+<body>
+    <h1>Debug All Assignments</h1>
+    <button onclick="fetchAssignments()">Fetch All Assignments</button>
+    <button onclick="fetchRooms()">Fetch Rooms</button>
+    <div id="output"></div>
+
+    <script>
+        async function fetchAssignments() {
+            try {
+                console.log('🔍 Fetching assignments...');
+                const response = await fetch('http://localhost:3001/api/assignments', {
+                    headers: {
+                        'Authorization': 'Bearer fake-token-for-debug'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const assignments = await response.json();
+                console.log('📊 Assignments:', assignments);
+                
+                const output = document.getElementById('output');
+                output.innerHTML = `
+                    <h2>Found ${assignments.length} assignments</h2>
+                    <pre>${JSON.stringify(assignments, null, 2)}</pre>
+                `;
+                
+                // Also log to console for easier viewing
+                console.log('=== ALL ASSIGNMENTS ===');
+                assignments.forEach((assignment, index) => {
+                    console.log(`${index + 1}. Room: ${assignment.room_id}, Date: ${assignment.date}, Time: ${assignment.start_time}-${assignment.end_time}, Type: ${assignment.activity_type}, Manual: ${assignment.is_manual}, Status: ${assignment.status}`);
+                });
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                document.getElementById('output').innerHTML = `<h2>Error</h2><pre>${error.message}</pre>`;
+            }
+        }
+        
+        async function fetchRooms() {
+            try {
+                console.log('🔍 Fetching rooms...');
+                const response = await fetch('http://localhost:3001/api/rooms', {
+                    headers: {
+                        'Authorization': 'Bearer fake-token-for-debug'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const rooms = await response.json();
+                console.log('📊 Rooms:', rooms);
+                
+                const output = document.getElementById('output');
+                output.innerHTML = `
+                    <h2>Found ${rooms.length} rooms</h2>
+                    <pre>${JSON.stringify(rooms, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                document.getElementById('output').innerHTML = `<h2>Error</h2><pre>${error.message}</pre>`;
+            }
+        }
+        
+        // Auto-fetch on load
+        window.onload = () => {
+            fetchAssignments();
+        };
+    </script>
+</body>
+</html>

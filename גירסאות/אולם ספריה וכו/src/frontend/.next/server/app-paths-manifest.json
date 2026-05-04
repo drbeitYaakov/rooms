@@ -1,0 +1,7 @@
+{
+  "/page": "app/page.js",
+  "/unified-calendar/page": "app/unified-calendar/page.js",
+  "/room-request/page": "app/room-request/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/auditorium/page": "app/auditorium/page.js"
+}
