@@ -303,6 +303,7 @@ export default function HomeroomsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [editingHomeroom, setEditingHomeroom] = useState<Homeroom | null>(null);
+  const [isSubmittingHomeroom, setIsSubmittingHomeroom] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedRoom, setSelectedRoom] = useState("");
   const [selectedClassNumber, setSelectedClassNumber] = useState("");
@@ -313,6 +314,8 @@ export default function HomeroomsPage() {
   const [historySchoolYears, setHistorySchoolYears] = useState<HistoricalSchoolYearOption[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDetailsLoading, setHistoryDetailsLoading] = useState(false);
+  const [isSavingGradeDefault, setIsSavingGradeDefault] = useState(false);
+  const [isSavingHomeroomOverride, setIsSavingHomeroomOverride] = useState(false);
   const [selectedHistorySchoolYear, setSelectedHistorySchoolYear] = useState("");
   const [historicalHomerooms, setHistoricalHomerooms] = useState<HistoricalHomeroom[]>([]);
   const [selectedHistoricalHomeroom, setSelectedHistoricalHomeroom] = useState<HistoricalHomeroom | null>(null);
@@ -829,24 +832,45 @@ export default function HomeroomsPage() {
   };
 
   const handleAddHomeroom = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/homerooms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        room_id: selectedRoom,
-        grade_id: selectedGrade,
-        class_number: parseInt(selectedClassNumber, 10),
-        max_students: 35,
-        school_year: getSchoolYearLabel(),
-      }),
-    });
-    const data = await response.json();
-    if (!data.success) {
-      alert(`שגיאה: ${data.error}`);
+    const selectedClassNumberValue = parseInt(selectedClassNumber, 10);
+
+    const duplicateHomeroom = homerooms.find(
+      (homeroom) =>
+        homeroom.grade_id === selectedGrade &&
+        homeroom.class_number === selectedClassNumberValue &&
+        homeroom.school_year === getSchoolYearLabel() &&
+        homeroom.is_active
+    );
+
+    if (duplicateHomeroom) {
+      alert("כיתת אם כזו כבר קיימת בשנה הנבחרת");
       return;
     }
-    resetModal();
-    await Promise.all([loadHomerooms(), loadDefaults()]);
+
+    try {
+      setIsSubmittingHomeroom(true);
+      const response = await authenticatedFetch("http://localhost:3001/api/homerooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          room_id: selectedRoom,
+          grade_id: selectedGrade,
+          class_number: selectedClassNumberValue,
+          max_students: 35,
+          school_year: getSchoolYearLabel(),
+        }),
+      });
+      const data = await response.json();
+      if (!data.success) {
+        alert(`שגיאה: ${data.error}`);
+        return;
+      }
+      resetModal();
+      await Promise.all([loadHomerooms(), loadDefaults()]);
+      alert("כיתת האם נוספה בהצלחה");
+    } finally {
+      setIsSubmittingHomeroom(false);
+    }
   };
 
   const handleUpdateHomeroom = async () => {
@@ -947,31 +971,41 @@ export default function HomeroomsPage() {
   };
 
   const saveGradeDefault = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/homerooms/default-settings/grade", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(gradeForm),
-    });
-    const data = await response.json();
-    if (!data.success) {
-      alert(`שגיאה: ${data.error}`);
-      return;
+    try {
+      setIsSavingGradeDefault(true);
+      const response = await authenticatedFetch("http://localhost:3001/api/homerooms/default-settings/grade", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(gradeForm),
+      });
+      const data = await response.json();
+      if (!data.success) {
+        alert(`שגיאה: ${data.error}`);
+        return;
+      }
+      await Promise.all([loadHomerooms(), loadDefaults()]);
+    } finally {
+      setIsSavingGradeDefault(false);
     }
-    await Promise.all([loadHomerooms(), loadDefaults()]);
   };
 
   const saveHomeroomOverride = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/homerooms/default-settings/homeroom", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...homeroomForm, homeroom_id: Number(homeroomForm.homeroom_id) }),
-    });
-    const data = await response.json();
-    if (!data.success) {
-      alert(`שגיאה: ${data.error}`);
-      return;
+    try {
+      setIsSavingHomeroomOverride(true);
+      const response = await authenticatedFetch("http://localhost:3001/api/homerooms/default-settings/homeroom", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...homeroomForm, homeroom_id: Number(homeroomForm.homeroom_id) }),
+      });
+      const data = await response.json();
+      if (!data.success) {
+        alert(`שגיאה: ${data.error}`);
+        return;
+      }
+      await Promise.all([loadHomerooms(), loadDefaults()]);
+    } finally {
+      setIsSavingHomeroomOverride(false);
     }
-    await Promise.all([loadHomerooms(), loadDefaults()]);
   };
 
   const saveSpecialSchedule = async () => {
@@ -1134,54 +1168,59 @@ export default function HomeroomsPage() {
                   ברירת המחדל הכללית נשארת לפי לוח שבועי קבוע, ובבסיס כל יום מוגדר 08:00-14:40.
                   הגדרת שכבה גוברת על ברירת המערכת, והגדרה פרטית לכיתה גוברת על הגדרת השכבה.
                 </div>
+                <div className="rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-sky-900">
+                  {activeAcademicYear
+                    ? `שמירה בטאב הזה מסנכרנת את השיבוצים מהתאריך שתבחרו ועד ${activeAcademicYear.end_date}, שהוא סוף שנת הלימודים הפעילה.`
+                    : "שמירה בטאב הזה מסנכרנת את השיבוצים מהתאריך שתבחרו ועד סוף שנת הלימודים הפעילה."}
+                </div>
 
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                   <div className="rounded-lg bg-white p-6 shadow">
                     <h3 className="text-lg font-medium text-gray-900">ברירת מחדל לשכבה</h3>
                     <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <select value={gradeForm.grade_id} onChange={(e) => setGradeForm((current) => ({ ...current, grade_id: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2">
+                      <select value={gradeForm.grade_id} onChange={(e) => setGradeForm((current) => ({ ...current, grade_id: e.target.value }))} disabled={isSavingGradeDefault} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100">
                         <option value="">בחר שכבה</option>
                         {availableGrades.map((grade) => <option key={grade.id} value={grade.id}>שכבה {grade.name}</option>)}
                       </select>
-                      <input type="date" value={gradeForm.effective_from} onChange={(e) => setGradeForm((current) => ({ ...current, effective_from: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2" />
+                      <input type="date" value={gradeForm.effective_from} onChange={(e) => setGradeForm((current) => ({ ...current, effective_from: e.target.value }))} disabled={isSavingGradeDefault} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
                     </div>
                     <div className="mt-4 space-y-3">
                       {gradeForm.weekly_schedule.map((slot) => (
                         <div key={slot.day_of_week} className="grid grid-cols-3 items-center gap-3">
                           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            <input type="checkbox" checked={slot.is_active} onChange={(e) => toggleGradeDayActive(slot.day_of_week, e.target.checked)} />
+                            <input type="checkbox" checked={slot.is_active} onChange={(e) => toggleGradeDayActive(slot.day_of_week, e.target.checked)} disabled={isSavingGradeDefault} />
                             {dayLabels[slot.day_of_week]}
                           </label>
-                          <input type="time" value={slot.start_time || ""} onChange={(e) => updateGradeDay(slot.day_of_week, "start_time", e.target.value)} disabled={!slot.is_active} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
-                          <input type="time" value={slot.end_time || ""} onChange={(e) => updateGradeDay(slot.day_of_week, "end_time", e.target.value)} disabled={!slot.is_active} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
+                          <input type="time" value={slot.start_time || ""} onChange={(e) => updateGradeDay(slot.day_of_week, "start_time", e.target.value)} disabled={!slot.is_active || isSavingGradeDefault} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
+                          <input type="time" value={slot.end_time || ""} onChange={(e) => updateGradeDay(slot.day_of_week, "end_time", e.target.value)} disabled={!slot.is_active || isSavingGradeDefault} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
                         </div>
                       ))}
                     </div>
-                    {canManage && <button onClick={() => void saveGradeDefault()} className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white">שמור ברירת מחדל לשכבה</button>}
+                    {canManage && <button onClick={() => void saveGradeDefault()} disabled={isSavingGradeDefault} className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60">{isSavingGradeDefault ? "שומר..." : "שמור ברירת מחדל לשכבה"}</button>}
                   </div>
 
                   <div className="rounded-lg bg-white p-6 shadow">
                     <h3 className="text-lg font-medium text-gray-900">הגדרה פרטית לכיתה</h3>
                     <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <select value={homeroomForm.homeroom_id} onChange={(e) => setHomeroomForm((current) => ({ ...current, homeroom_id: e.target.value }))} className="md:col-span-2 rounded-md border border-gray-300 px-3 py-2">
+                      <select value={homeroomForm.homeroom_id} onChange={(e) => setHomeroomForm((current) => ({ ...current, homeroom_id: e.target.value }))} disabled={isSavingHomeroomOverride} className="md:col-span-2 rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100">
                         <option value="">בחר כיתת אם</option>
                         {(defaultsData?.homerooms || []).map((homeroom) => <option key={homeroom.id} value={homeroom.id}>{homeroom.display_name} - חדר {homeroom.room_number}</option>)}
                       </select>
-                      <input type="date" value={homeroomForm.effective_from} onChange={(e) => setHomeroomForm((current) => ({ ...current, effective_from: e.target.value }))} className="rounded-md border border-gray-300 px-3 py-2" />
+                      <input type="date" value={homeroomForm.effective_from} onChange={(e) => setHomeroomForm((current) => ({ ...current, effective_from: e.target.value }))} disabled={isSavingHomeroomOverride} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
                     </div>
                     <div className="mt-4 space-y-3">
                       {homeroomForm.weekly_schedule.map((slot) => (
                         <div key={slot.day_of_week} className="grid grid-cols-3 items-center gap-3">
                           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                            <input type="checkbox" checked={slot.is_active} onChange={(e) => toggleHomeroomDayActive(slot.day_of_week, e.target.checked)} />
+                            <input type="checkbox" checked={slot.is_active} onChange={(e) => toggleHomeroomDayActive(slot.day_of_week, e.target.checked)} disabled={isSavingHomeroomOverride} />
                             {dayLabels[slot.day_of_week]}
                           </label>
-                          <input type="time" value={slot.start_time || ""} onChange={(e) => updateHomeroomDay(slot.day_of_week, "start_time", e.target.value)} disabled={!slot.is_active} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
-                          <input type="time" value={slot.end_time || ""} onChange={(e) => updateHomeroomDay(slot.day_of_week, "end_time", e.target.value)} disabled={!slot.is_active} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
+                          <input type="time" value={slot.start_time || ""} onChange={(e) => updateHomeroomDay(slot.day_of_week, "start_time", e.target.value)} disabled={!slot.is_active || isSavingHomeroomOverride} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
+                          <input type="time" value={slot.end_time || ""} onChange={(e) => updateHomeroomDay(slot.day_of_week, "end_time", e.target.value)} disabled={!slot.is_active || isSavingHomeroomOverride} className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100" />
                         </div>
                       ))}
                     </div>
-                    {canManage && <button onClick={() => void saveHomeroomOverride()} className="mt-4 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white">שמור הגדרה פרטית לכיתה</button>}
+                    {canManage && <button onClick={() => void saveHomeroomOverride()} disabled={isSavingHomeroomOverride} className="mt-4 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60">{isSavingHomeroomOverride ? "שומר..." : "שמור הגדרה פרטית לכיתה"}</button>}
                   </div>
                 </div>
 
@@ -1563,22 +1602,27 @@ export default function HomeroomsPage() {
           <div className="relative top-20 mx-auto w-96 rounded-md border bg-white p-5 shadow-lg">
             <h3 className="mb-4 text-lg font-medium text-gray-900">{editingHomeroom ? "עריכת כיתת אם" : "הוספת כיתת אם חדשה"}</h3>
             <div className="space-y-4">
+              <div className="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+                {activeAcademicYear
+                  ? `השיבוץ הדיפולטיבי ייווצר לפי שנת הלימודים הפעילה: מ-${activeAcademicYear.start_date} עד ${activeAcademicYear.end_date}. אם תאריך ההתחלה כבר עבר, השיבוצים יתחילו מהיום.`
+                  : "השיבוץ הדיפולטיבי ייווצר לפי שנת הלימודים הפעילה. אם תאריך ההתחלה כבר עבר, השיבוצים יתחילו מהיום."}
+              </div>
               <select value={selectedGrade} onChange={async (e) => { setSelectedGrade(e.target.value); setSelectedRoom(""); await loadFilteredRooms(e.target.value); }} className="block w-full rounded-md border border-gray-300 px-3 py-2">
                 <option value="">בחר שכבה</option>
                 {availableGrades.map((grade) => <option key={grade.id} value={grade.id}>שכבה {grade.name}</option>)}
               </select>
-              <select value={selectedClassNumber} onChange={(e) => setSelectedClassNumber(e.target.value)} className="block w-full rounded-md border border-gray-300 px-3 py-2">
+              <select value={selectedClassNumber} onChange={(e) => setSelectedClassNumber(e.target.value)} disabled={isSubmittingHomeroom} className="block w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100">
                 <option value="">בחר מספר כיתה</option>
                 {[1, 2, 3, 4, 5, 6, 7].map((num) => <option key={num} value={num}>כיתה {num}</option>)}
               </select>
-              <select value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)} className="block w-full rounded-md border border-gray-300 px-3 py-2">
+              <select value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)} disabled={isSubmittingHomeroom} className="block w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100">
                 <option value="">בחר חדר</option>
                 {filteredRooms.map((room) => <option key={room.id} value={room.id}>{room.room_number} (תכולה: {room.capacity})</option>)}
               </select>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={resetModal} className="rounded-md bg-gray-300 px-4 py-2 text-gray-800">ביטול</button>
-              <button onClick={() => void (editingHomeroom ? handleUpdateHomeroom() : handleAddHomeroom())} className="rounded-md bg-indigo-600 px-4 py-2 text-white">{editingHomeroom ? "עדכן" : "הוסף"}</button>
+              <button onClick={resetModal} disabled={isSubmittingHomeroom} className="rounded-md bg-gray-300 px-4 py-2 text-gray-800 disabled:cursor-not-allowed disabled:opacity-60">ביטול</button>
+              <button onClick={() => void (editingHomeroom ? handleUpdateHomeroom() : handleAddHomeroom())} disabled={isSubmittingHomeroom} className="rounded-md bg-indigo-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60">{isSubmittingHomeroom ? "מוסיף..." : editingHomeroom ? "עדכן" : "הוסף"}</button>
             </div>
           </div>
         </div>

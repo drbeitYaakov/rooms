@@ -53,6 +53,15 @@ interface RecurringSchedulingResponse {
   } | null;
 }
 
+interface ActiveAcademicYearResponse {
+  success: boolean;
+  data?: {
+    academic_year?: {
+      end_date?: string | null;
+    } | null;
+  };
+}
+
 const HIGH_SCHOOL_PE_ACTIVITY_TYPE = "high_school_pe";
 
 const DAY_OPTIONS = [
@@ -69,12 +78,6 @@ const ACTIVITY_OPTIONS = RECURRING_ROOM_REQUEST_ACTIVITY_OPTIONS;
 type DayHours = Record<number, { start: string; end: string }>;
 
 const getToday = () => new Date().toISOString().split("T")[0];
-
-const getSchoolYearEnd = (dateValue: string) => {
-  const date = new Date(`${dateValue}T00:00:00`);
-  const year = date.getMonth() >= 8 ? date.getFullYear() + 1 : date.getFullYear();
-  return `${year}-06-30`;
-};
 
 export default function RecurringSchedulePage({
   onClose,
@@ -96,6 +99,7 @@ export default function RecurringSchedulePage({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RecurringSchedulingResponse | null>(null);
   const [showRelocationModal, setShowRelocationModal] = useState(false);
+  const [activeAcademicYearEndDate, setActiveAcademicYearEndDate] = useState("");
 
   const isHighSchoolPe = activityType === HIGH_SCHOOL_PE_ACTIVITY_TYPE;
 
@@ -119,6 +123,31 @@ export default function RecurringSchedulePage({
   useEffect(() => {
     setShowRelocationModal(relocatedOccurrences.length > 0);
   }, [relocatedOccurrences]);
+
+  useEffect(() => {
+    const loadActiveAcademicYear = async () => {
+      try {
+        const response = await authenticatedFetch("http://localhost:3001/api/academic-years/active");
+        const data: ActiveAcademicYearResponse = await response.json();
+
+        if (!data.success) {
+          return;
+        }
+
+        setActiveAcademicYearEndDate(data.data?.academic_year?.end_date || "");
+      } catch (loadError) {
+        console.error("Error loading active academic year:", loadError);
+      }
+    };
+
+    loadActiveAcademicYear();
+  }, []);
+
+  useEffect(() => {
+    if (isHighSchoolPe && activeAcademicYearEndDate) {
+      setEndDate(activeAcademicYearEndDate);
+    }
+  }, [activeAcademicYearEndDate, isHighSchoolPe]);
 
   const toggleDay = (day: number) => {
     setSelectedDays((current) =>
@@ -147,9 +176,8 @@ export default function RecurringSchedulePage({
   const handleActivityChange = (value: string) => {
     setActivityType(value);
     if (value === HIGH_SCHOOL_PE_ACTIVITY_TYPE) {
-      const today = getToday();
-      setStartDate(today);
-      setEndDate(getSchoolYearEnd(today));
+      setStartDate(getToday());
+      setEndDate(activeAcademicYearEndDate);
     }
   };
 

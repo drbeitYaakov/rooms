@@ -1,0 +1,9 @@
+{
+  "/page": "app/page.js",
+  "/grades/page": "app/grades/page.js",
+  "/homerooms/page": "app/homerooms/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/unified-calendar/page": "app/unified-calendar/page.js",
+  "/study-groups/page": "app/study-groups/page.js",
+  "/auditorium/page": "app/auditorium/page.js"
+}
