@@ -18,12 +18,6 @@ export default function HomePage() {
       case 'override-rules':
         router.push('/assignments/override');
         break;
-      case 'view-conflicts':
-        router.push('/reports');
-        break;
-      case 'create-reports':
-        router.push('/reports');
-        break;
       default:
         console.log('Unknown action:', action);
     }
@@ -129,12 +123,6 @@ export default function HomePage() {
               className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
             >
               הקבצות
-            </Link>
-            <Link
-              href="/reports"
-              className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-            >
-              דוחות
             </Link>
             <Link
               href="/academic-years"
@@ -296,12 +284,7 @@ export default function HomePage() {
                     >
                       ניהול משתמשים
                     </button>
-                    <button 
-                      onClick={() => handleQuickAction('create-reports')}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md text-sm font-medium transition-colors"
-                    >
-                      יצירת דוחות
-                    </button> */}
+                    */}
                   </div>
                 </div>
               </div>

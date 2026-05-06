@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Dispatch, FormEvent, SetStateAction, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -129,6 +129,21 @@ const getStudyGroupTypeText = (type: StudyGroup["group_type"]) => {
   return types[type] || type;
 };
 
+const mapStudyGroupsErrorMessage = (error: unknown): string => {
+  const normalizedError = String(error || "").trim();
+
+  switch (normalizedError) {
+    case "No active academic year found":
+      return "לא מוגדרת שנה פעילה במערכת. יש להגדיר או להפעיל שנה לימודית לפני יצירת הקבצה או שיבוץ.";
+    case "Active academic year date range is missing":
+      return "לשנה הפעילה חסר טווח תאריכים. יש להשלים תאריך התחלה ותאריך סיום.";
+    case "No remaining scheduling dates are available in the active academic year":
+      return "אין יותר תאריכים זמינים לשיבוץ במסגרת השנה הפעילה.";
+    default:
+      return normalizedError || "אירעה שגיאה לא צפויה.";
+  }
+};
+
 export default function StudyGroupsPage() {
   const { data: session } = useSession();
   const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([]);
@@ -226,7 +241,7 @@ export default function StudyGroupsPage() {
       if (data.success) {
         await Promise.all([fetchGradeGroupDefinitions(), fetchStudyGroups()]);
       } else {
-        alert(`שגיאה: ${data.error}`);
+        alert(`שגיאה: ${mapStudyGroupsErrorMessage(data.error)}`);
       }
     } catch (error) {
       console.error("Error saving grade group definition:", error);
@@ -255,7 +270,7 @@ export default function StudyGroupsPage() {
         setEditingGroup(null);
         await fetchStudyGroups();
       } else {
-        alert(`שגיאה: ${data.error}`);
+        alert(`שגיאה: ${mapStudyGroupsErrorMessage(data.error)}`);
       }
     } catch (error) {
       console.error("Error updating study group:", error);
@@ -279,7 +294,7 @@ export default function StudyGroupsPage() {
         alert("הקבצה נמחקה בהצלחה!");
         await fetchStudyGroups();
       } else {
-        alert(`שגיאה: ${data.error}`);
+        alert(`שגיאה: ${mapStudyGroupsErrorMessage(data.error)}`);
       }
     } catch (error) {
       console.error("Error deleting study group:", error);
@@ -322,7 +337,7 @@ export default function StudyGroupsPage() {
         setSchedulingResult(data.data);
         setShowSchedulingModal(true);
       } else {
-        alert(`שגיאה בשיבוץ: ${data.error}`);
+        alert(`שגיאה בשיבוץ: ${mapStudyGroupsErrorMessage(data.error)}`);
       }
     } catch (error) {
       console.error("Error scheduling groups:", error);
@@ -1093,7 +1108,7 @@ function InlineAddGroupRow({
       if (data.success) {
         await onSaved();
       } else {
-        alert(`שגיאה: ${data.error}`);
+        alert(`שגיאה: ${mapStudyGroupsErrorMessage(data.error)}`);
       }
     } catch (error) {
       console.error("Error adding study group:", error);

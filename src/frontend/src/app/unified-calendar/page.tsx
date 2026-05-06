@@ -189,6 +189,14 @@ const getWingDisplay = (wing: string) => {
   return wings[wing] || wing;
 };
 
+const getDayColumnSurface = (index: number) =>
+  index % 2 === 0
+    ? "bg-[linear-gradient(180deg,_rgba(248,250,252,0.96),_rgba(255,255,255,1))]"
+    : "bg-[linear-gradient(180deg,_rgba(241,245,249,0.92),_rgba(248,250,252,0.98))]";
+
+const getDayColumnBorder = (index: number) =>
+  index % 2 === 0 ? "border-l-2 border-l-slate-300" : "border-l-2 border-l-sky-100";
+
 const isDefaultHomeroomAssignment = (assignment: DayAssignment) =>
   assignment.id === "default-homeroom" || assignment.is_default_homeroom === true;
 
@@ -770,7 +778,7 @@ export default function UnifiedCalendarPage() {
                           <div className="mt-2 text-base font-bold text-slate-900">פרטי חדר</div>
                         </div>
 
-                        {visibleDays.map((day) => {
+                        {visibleDays.map((day, dayIndex) => {
                           const dayTotalAssignments = filteredRooms.reduce(
                             (count, room) => count + getRoomAssignmentsForDay(room.room_id, day.date).length,
                             0,
@@ -780,7 +788,11 @@ export default function UnifiedCalendarPage() {
                           return (
                             <div
                               key={day.date}
-                              className={`border-l px-4 py-4 ${isSelectedDay ? "border-sky-100 bg-sky-50/45" : "border-slate-200"}`}
+                              className={`px-4 py-4 ${getDayColumnBorder(dayIndex)} ${
+                                isSelectedDay
+                                  ? "bg-sky-50/70 shadow-[inset_0_0_0_1px_rgba(125,211,252,0.32)]"
+                                  : getDayColumnSurface(dayIndex)
+                              }`}
                             >
                               <div className="mb-4 flex items-start justify-between gap-3">
                                 <div>
@@ -793,7 +805,12 @@ export default function UnifiedCalendarPage() {
                                 </div>
                               </div>
 
-                              <div className="relative h-9 rounded-2xl bg-slate-50" dir="ltr">
+                              <div
+                                className={`relative h-9 rounded-2xl ${
+                                  dayIndex % 2 === 0 ? "bg-white/80" : "bg-slate-100/85"
+                                }`}
+                                dir="ltr"
+                              >
                                 {Array.from({ length: CALENDAR_END_HOUR - CALENDAR_START_HOUR + 1 }, (_, index) => {
                                   const hour = CALENDAR_START_HOUR + index;
                                   const position =
@@ -837,7 +854,7 @@ export default function UnifiedCalendarPage() {
                               </div>
                             </div>
 
-                            {visibleDays.map((day) => {
+                            {visibleDays.map((day, dayIndex) => {
                               const assignments = getRoomAssignmentsForDay(room.room_id, day.date);
                               const { layout: assignmentLayouts, laneCount } = getAssignmentLanes(assignments);
                               const isSelectedCell =
@@ -858,10 +875,10 @@ export default function UnifiedCalendarPage() {
                                       date: day.date,
                                     })
                                   }
-                                  className={`relative border-l px-3 py-3 text-right transition ${
+                                  className={`relative px-3 py-3 text-right transition ${getDayColumnBorder(dayIndex)} ${
                                     isSelectedCell
                                       ? "border-sky-200 bg-sky-50/60 shadow-[inset_0_0_0_1px_rgba(125,211,252,0.4)]"
-                                      : "border-slate-200 bg-[linear-gradient(180deg,_rgba(248,250,252,0.95),_rgba(255,255,255,1))] hover:bg-slate-50"
+                                      : `${getDayColumnSurface(dayIndex)} hover:brightness-[0.985]`
                                   }`}
                                   style={{ minHeight: `${dayCellHeightRem}rem` }}
                                 >

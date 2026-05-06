@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "../../lib/auth-backend-bridge";
+import HebrewDateField from "../../components/HebrewDateField";
 
 interface Homeroom {
   id: number;
@@ -93,6 +94,23 @@ interface DefaultSetting {
   end_time?: string;
 }
 
+interface SpecialSchedule {
+  id: string;
+  grade_id: string | null;
+  grade_name?: string | null;
+  homeroom_id: number | null;
+  homeroom_name?: string | null;
+  start_date: string;
+  end_date: string;
+  reason?: string | null;
+  weekly_schedule: Array<{
+    day_of_week: number;
+    is_active: boolean;
+    start_time: string | null;
+    end_time: string | null;
+  }>;
+}
+
 interface DefaultSettingsData {
   system_default: {
     start_time: string;
@@ -108,6 +126,7 @@ interface DefaultSettingsData {
   homerooms: Array<{ id: number; display_name: string; room_number: string }>;
   grade_defaults: DefaultSetting[];
   homeroom_overrides: DefaultSetting[];
+  special_schedules: SpecialSchedule[];
 }
 
 interface WeeklyFormSlot {
@@ -129,7 +148,22 @@ interface HomeroomFormState {
   weekly_schedule: WeeklyFormSlot[];
 }
 
-type TabKey = "homerooms" | "fixed-times" | "history";
+interface SpecialScheduleFormState {
+  target_type: "grade" | "homeroom";
+  grade_id: string;
+  homeroom_id: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  weekly_schedule: WeeklyFormSlot[];
+}
+
+interface SpecialScheduleCurrentState {
+  source: string;
+  weekly_schedule: WeeklyFormSlot[];
+}
+
+type TabKey = "homerooms" | "fixed-times" | "special-times" | "history";
 
 const getToday = () => {
   const now = new Date();
@@ -172,6 +206,22 @@ const getLatestSettingForGrade = (
   return defaultsData.grade_defaults.find((setting) => setting.grade_id === gradeId) || null;
 };
 
+const getSettingForGradeAtDate = (
+  gradeId: string,
+  targetDate: string,
+  defaultsData: DefaultSettingsData | null
+) => {
+  if (!defaultsData || !gradeId || !targetDate) {
+    return null;
+  }
+
+  return (
+    defaultsData.grade_defaults.find(
+      (setting) => setting.grade_id === gradeId && setting.effective_from <= targetDate
+    ) || null
+  );
+};
+
 const getLatestSettingForHomeroom = (
   homeroomId: string,
   defaultsData: DefaultSettingsData | null
@@ -181,6 +231,64 @@ const getLatestSettingForHomeroom = (
   }
 
   return defaultsData.homeroom_overrides.find((setting) => String(setting.homeroom_id) === homeroomId) || null;
+};
+
+const getSettingForHomeroomAtDate = (
+  homeroomId: string,
+  targetDate: string,
+  defaultsData: DefaultSettingsData | null
+) => {
+  if (!defaultsData || !homeroomId || !targetDate) {
+    return null;
+  }
+
+  return (
+    defaultsData.homeroom_overrides.find(
+      (setting) => String(setting.homeroom_id) === homeroomId && setting.effective_from <= targetDate
+    ) || null
+  );
+};
+
+const validateSpecialScheduleAgainstBase = (
+  specialSchedule: WeeklyFormSlot[],
+  baseSchedule: WeeklyFormSlot[]
+) => {
+  for (const slot of specialSchedule) {
+    const baseSlot = baseSchedule.find((item) => item.day_of_week === slot.day_of_week);
+
+    if (!baseSlot) {
+      return "לא נמצאה הגדרת בסיס עבור אחד הימים.";
+    }
+
+    if (!baseSlot.is_active) {
+      if (slot.is_active) {
+        return `אי אפשר לפתוח את ${dayLabels[slot.day_of_week]} אם הוא לא פעיל בזמנים הקבועים.`;
+      }
+      continue;
+    }
+
+    if (!slot.is_active) {
+      continue;
+    }
+
+    if (!slot.start_time || !slot.end_time || !baseSlot.start_time || !baseSlot.end_time) {
+      return `יש להשלים שעות תקינות עבור ${dayLabels[slot.day_of_week]}.`;
+    }
+
+    if (slot.start_time < baseSlot.start_time) {
+      return `ב${dayLabels[slot.day_of_week]} אפשר להתחיל רק מאוחר יותר מהזמן הקבוע (${baseSlot.start_time}).`;
+    }
+
+    if (slot.end_time > baseSlot.end_time) {
+      return `ב${dayLabels[slot.day_of_week]} אפשר לסיים רק מוקדם יותר מהזמן הקבוע (${baseSlot.end_time}).`;
+    }
+
+    if (slot.start_time >= slot.end_time) {
+      return `ב${dayLabels[slot.day_of_week]} שעת הסיום חייבת להיות אחרי שעת ההתחלה.`;
+    }
+  }
+
+  return null;
 };
 
 export default function HomeroomsPage() {
@@ -212,6 +320,18 @@ export default function HomeroomsPage() {
   const [swapSelections, setSwapSelections] = useState<Record<number, { selected: boolean; room_id: string }>>({});
   const [gradeForm, setGradeForm] = useState<GradeFormState>({ grade_id: "", effective_from: getToday(), weekly_schedule: buildDefaultWeeklySchedule() });
   const [homeroomForm, setHomeroomForm] = useState<HomeroomFormState>({ homeroom_id: "", effective_from: getToday(), weekly_schedule: buildDefaultWeeklySchedule() });
+  const [specialScheduleForm, setSpecialScheduleForm] = useState<SpecialScheduleFormState>({
+    target_type: "grade",
+    grade_id: "",
+    homeroom_id: "",
+    start_date: getToday(),
+    end_date: getToday(),
+    reason: "",
+    weekly_schedule: buildDefaultWeeklySchedule()
+  });
+  const [specialScheduleBase, setSpecialScheduleBase] = useState<WeeklyFormSlot[]>(buildDefaultWeeklySchedule());
+  const [specialScheduleSourceLabel, setSpecialScheduleSourceLabel] = useState("מצב נוכחי לפי ברירת המחדל של המערכת");
+  const [specialScheduleStateLoading, setSpecialScheduleStateLoading] = useState(false);
 
   useEffect(() => {
     void Promise.all([loadActiveAcademicYear(), loadAcademicYears(), loadHistorySchoolYears(), loadHomerooms(), loadGrades(), loadDefaults()]).finally(() => setLoading(false));
@@ -436,6 +556,117 @@ export default function HomeroomsPage() {
     }
   };
 
+  const getFallbackSpecialScheduleBase = (
+    form: Pick<SpecialScheduleFormState, "target_type" | "grade_id" | "homeroom_id" | "start_date">
+  ) => {
+    if (!defaultsData) {
+      return {
+        label: "מצב נוכחי לפי ברירת המחדל של המערכת",
+        weeklySchedule: buildDefaultWeeklySchedule(),
+      };
+    }
+
+    if (form.target_type === "homeroom" && form.homeroom_id) {
+      const homeroomSetting = getSettingForHomeroomAtDate(form.homeroom_id, form.start_date, defaultsData);
+      if (homeroomSetting) {
+        return {
+          label: `מצב נוכחי לפי הגדרה פרטית של כיתת האם מ-${homeroomSetting.effective_from}`,
+          weeklySchedule: normalizeWeeklyScheduleForForm(homeroomSetting.weekly_schedule),
+        };
+      }
+
+      const gradeId = homerooms.find((homeroom) => String(homeroom.id) === form.homeroom_id)?.grade_id;
+      const gradeSetting = gradeId
+        ? getSettingForGradeAtDate(gradeId, form.start_date, defaultsData)
+        : null;
+      if (gradeSetting) {
+        return {
+          label: `מצב נוכחי לפי הגדרת שכבה מ-${gradeSetting.effective_from}`,
+          weeklySchedule: normalizeWeeklyScheduleForForm(gradeSetting.weekly_schedule),
+        };
+      }
+    }
+
+    if (form.target_type === "grade" && form.grade_id) {
+      const gradeSetting = getSettingForGradeAtDate(form.grade_id, form.start_date, defaultsData);
+      if (gradeSetting) {
+        return {
+          label: `מצב נוכחי לפי הגדרת שכבה מ-${gradeSetting.effective_from}`,
+          weeklySchedule: normalizeWeeklyScheduleForForm(gradeSetting.weekly_schedule),
+        };
+      }
+    }
+
+    return {
+      label: "מצב נוכחי לפי ברירת המחדל של המערכת",
+      weeklySchedule: normalizeWeeklyScheduleForForm(defaultsData.system_default.weekly_schedule),
+    };
+  };
+
+  const loadSpecialScheduleCurrentState = async (
+    form: Pick<SpecialScheduleFormState, "target_type" | "grade_id" | "homeroom_id" | "start_date">
+  ) => {
+    const fallback = getFallbackSpecialScheduleBase(form);
+
+    if (!defaultsData) {
+      setSpecialScheduleBase(fallback.weeklySchedule);
+      setSpecialScheduleSourceLabel(fallback.label);
+      setSpecialScheduleForm((current) => ({ ...current, weekly_schedule: fallback.weeklySchedule }));
+      return;
+    }
+
+    const hasTarget = form.target_type === "grade" ? Boolean(form.grade_id) : Boolean(form.homeroom_id);
+    if (!hasTarget || !form.start_date) {
+      setSpecialScheduleBase(fallback.weeklySchedule);
+      setSpecialScheduleSourceLabel(fallback.label);
+      setSpecialScheduleForm((current) => ({ ...current, weekly_schedule: fallback.weeklySchedule }));
+      return;
+    }
+
+    try {
+      setSpecialScheduleStateLoading(true);
+      const params = new URLSearchParams({
+        target_type: form.target_type,
+        date: form.start_date,
+      });
+      if (form.target_type === "grade") {
+        params.set("grade_id", form.grade_id);
+      } else {
+        params.set("homeroom_id", form.homeroom_id);
+      }
+
+      const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/special-schedules/current-state?${params.toString()}`);
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || "failed");
+      }
+
+      const currentState = data.data as SpecialScheduleCurrentState;
+      const normalizedSchedule = normalizeWeeklyScheduleForForm(currentState.weekly_schedule);
+      const sourceLabel =
+        currentState.source === "calendar-assignments"
+          ? `מצב נוכחי מהלוח בפועל לתאריך ${form.start_date}`
+          : `מצב נוכחי מחישוב השרת לתאריך ${form.start_date}`;
+
+      setSpecialScheduleBase(normalizedSchedule);
+      setSpecialScheduleSourceLabel(sourceLabel);
+      setSpecialScheduleForm((current) => ({
+        ...current,
+        weekly_schedule: normalizedSchedule,
+      }));
+    } catch (error) {
+      console.error("Error loading special schedule current state:", error);
+      setSpecialScheduleBase(fallback.weeklySchedule);
+      setSpecialScheduleSourceLabel(fallback.label);
+      setSpecialScheduleForm((current) => ({
+        ...current,
+        weekly_schedule: fallback.weeklySchedule,
+      }));
+    } finally {
+      setSpecialScheduleStateLoading(false);
+    }
+  };
+
   const loadRooms = async () => {
     const response = await authenticatedFetch("http://localhost:3001/api/rooms");
     const data = await response.json();
@@ -492,6 +723,31 @@ export default function HomeroomsPage() {
 
   const toggleHomeroomDayActive = (dayOfWeek: number, isActive: boolean) => {
     setHomeroomForm((current) => ({
+      ...current,
+      weekly_schedule: current.weekly_schedule.map((slot) =>
+        slot.day_of_week === dayOfWeek
+          ? {
+              ...slot,
+              is_active: isActive,
+              start_time: isActive ? (slot.start_time || "08:00") : null,
+              end_time: isActive ? (slot.end_time || "14:40") : null,
+            }
+          : slot
+      ),
+    }));
+  };
+
+  const updateSpecialScheduleDay = (dayOfWeek: number, field: "start_time" | "end_time", value: string) => {
+    setSpecialScheduleForm((current) => ({
+      ...current,
+      weekly_schedule: current.weekly_schedule.map((slot) =>
+        slot.day_of_week === dayOfWeek ? { ...slot, [field]: value } : slot
+      ),
+    }));
+  };
+
+  const toggleSpecialScheduleDayActive = (dayOfWeek: number, isActive: boolean) => {
+    setSpecialScheduleForm((current) => ({
       ...current,
       weekly_schedule: current.weekly_schedule.map((slot) =>
         slot.day_of_week === dayOfWeek
@@ -718,6 +974,69 @@ export default function HomeroomsPage() {
     await Promise.all([loadHomerooms(), loadDefaults()]);
   };
 
+  const saveSpecialSchedule = async () => {
+    const validationError = validateSpecialScheduleAgainstBase(
+      specialScheduleForm.weekly_schedule,
+      specialScheduleBase
+    );
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    const payload = {
+      ...specialScheduleForm,
+      homeroom_id: specialScheduleForm.target_type === "homeroom" ? Number(specialScheduleForm.homeroom_id) : null,
+      grade_id: specialScheduleForm.target_type === "grade" ? specialScheduleForm.grade_id : null,
+    };
+
+    const response = await authenticatedFetch("http://localhost:3001/api/homerooms/special-schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!data.success) {
+      alert(`׳©׳’׳™׳׳”: ${data.error}`);
+      return;
+    }
+
+    setSpecialScheduleForm((current) => ({
+      ...current,
+      reason: "",
+      start_date: getToday(),
+      end_date: getToday()
+    }));
+    await Promise.all([loadHomerooms(), loadDefaults()]);
+    alert("השינוי בוצע בהצלחה");
+  };
+
+  const deleteSpecialSchedule = async (id: string) => {
+    if (!confirm("למחוק את השינוי החד פעמי הזה? השיבוצים המושפעים יסונכרנו מחדש.")) {
+      return;
+    }
+
+    const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/special-schedules/${id}`, {
+      method: "DELETE",
+    });
+    const data = await response.json();
+    if (!data.success) {
+      alert(`׳©׳’׳™׳׳”: ${data.error}`);
+      return;
+    }
+
+    await Promise.all([loadHomerooms(), loadDefaults()]);
+  };
+
+  useEffect(() => {
+    void loadSpecialScheduleCurrentState({
+      target_type: specialScheduleForm.target_type,
+      grade_id: specialScheduleForm.grade_id,
+      homeroom_id: specialScheduleForm.homeroom_id,
+      start_date: specialScheduleForm.start_date,
+    });
+  }, [specialScheduleForm.target_type, specialScheduleForm.grade_id, specialScheduleForm.homeroom_id, specialScheduleForm.start_date, defaultsData, homerooms]);
+
   const totalCapacity = useMemo(() => homerooms.reduce((sum, item) => sum + item.max_students, 0), [homerooms]);
   const totalStudents = useMemo(() => homerooms.reduce((sum, item) => sum + item.current_students, 0), [homerooms]);
   const availableGrades = grades.length > 0 ? grades : (defaultsData?.grades || []);
@@ -748,6 +1067,7 @@ export default function HomeroomsPage() {
               <div className="flex gap-2">
                 <button onClick={() => setActiveTab("homerooms")} className={`rounded-md px-4 py-2 text-sm font-medium ${activeTab === "homerooms" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}>כיתות אם</button>
                 <button onClick={() => setActiveTab("fixed-times")} className={`rounded-md px-4 py-2 text-sm font-medium ${activeTab === "fixed-times" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}>זמנים קבועים</button>
+                <button onClick={() => setActiveTab("special-times")} className={`rounded-md px-4 py-2 text-sm font-medium ${activeTab === "special-times" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}>שחרורים וזמנים מיוחדים</button>
                 <button onClick={() => setActiveTab("history")} className={`rounded-md px-4 py-2 text-sm font-medium ${activeTab === "history" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700"}`}>היסטוריית שנים</button>
               </div>
             </div>
@@ -903,6 +1223,170 @@ export default function HomeroomsPage() {
                             <div className="text-xs text-gray-500">בתוקף מ-{setting.effective_from}</div>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === "special-times" ? (
+              <div className="space-y-6">
+                <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
+                  כאן אפשר להגדיר שינוי זמני לתקופה קצרה עבור שכבה או כיתת אם. בזמן התקופה שנבחרה ההגדרה הזאת גוברת על הזמנים הקבועים, ואז המערכת חוזרת אוטומטית לשגרה.
+                  השינוי כאן יכול רק לצמצם את המסגרת הקיימת: להתחיל יותר מאוחר, לסיים יותר מוקדם, או לבטל יום.
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                  <div className="rounded-lg bg-white p-6 shadow">
+                    <h3 className="text-lg font-medium text-gray-900">הגדרת שינוי חד פעמי</h3>
+                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <select
+                        value={specialScheduleForm.target_type}
+                        onChange={(e) => setSpecialScheduleForm((current) => ({
+                          ...current,
+                          target_type: e.target.value as "grade" | "homeroom",
+                          grade_id: "",
+                          homeroom_id: ""
+                        }))}
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      >
+                        <option value="grade">שכבה</option>
+                        <option value="homeroom">כיתת אם</option>
+                      </select>
+
+                      {specialScheduleForm.target_type === "grade" ? (
+                        <select
+                          value={specialScheduleForm.grade_id}
+                          onChange={(e) => setSpecialScheduleForm((current) => ({ ...current, grade_id: e.target.value }))}
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        >
+                          <option value="">בחר שכבה</option>
+                          {availableGrades.map((grade) => <option key={grade.id} value={grade.id}>שכבה {grade.name}</option>)}
+                        </select>
+                      ) : (
+                        <select
+                          value={specialScheduleForm.homeroom_id}
+                          onChange={(e) => setSpecialScheduleForm((current) => ({ ...current, homeroom_id: e.target.value }))}
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        >
+                          <option value="">בחר כיתת אם</option>
+                          {(defaultsData?.homerooms || []).map((homeroom) => (
+                            <option key={homeroom.id} value={homeroom.id}>
+                              {homeroom.display_name} - חדר {homeroom.room_number}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      <HebrewDateField
+                        label="מתאריך"
+                        value={specialScheduleForm.start_date}
+                        onChange={(value) => setSpecialScheduleForm((current) => ({
+                          ...current,
+                          start_date: value,
+                          end_date: current.end_date < value ? value : current.end_date,
+                        }))}
+                        className="rounded-md"
+                      />
+                      <HebrewDateField
+                        label="עד תאריך"
+                        value={specialScheduleForm.end_date}
+                        onChange={(value) => setSpecialScheduleForm((current) => ({ ...current, end_date: value }))}
+                        min={specialScheduleForm.start_date}
+                        className="rounded-md"
+                      />
+                      <input
+                        type="text"
+                        value={specialScheduleForm.reason}
+                        onChange={(e) => setSpecialScheduleForm((current) => ({ ...current, reason: e.target.value }))}
+                        placeholder="סיבה או הערה קצרה"
+                        className="md:col-span-2 rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </div>
+
+                    {(specialScheduleForm.grade_id || specialScheduleForm.homeroom_id) ? (
+                      <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                        {specialScheduleStateLoading ? "טוען את המצב מהלוח..." : specialScheduleSourceLabel}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 space-y-3">
+                      {specialScheduleForm.weekly_schedule.map((slot) => (
+                        <div key={slot.day_of_week} className="grid grid-cols-3 items-center gap-3">
+                          {(() => {
+                            const baseSlot = specialScheduleBase.find((item) => item.day_of_week === slot.day_of_week);
+                            return (
+                              <>
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={slot.is_active}
+                              onChange={(e) => toggleSpecialScheduleDayActive(slot.day_of_week, e.target.checked)}
+                              disabled={!baseSlot?.is_active}
+                            />
+                            {dayLabels[slot.day_of_week]}
+                          </label>
+                          <input
+                            type="time"
+                            value={slot.start_time || ""}
+                            onChange={(e) => updateSpecialScheduleDay(slot.day_of_week, "start_time", e.target.value)}
+                            disabled={!slot.is_active}
+                            min={baseSlot?.start_time || undefined}
+                            max={baseSlot?.end_time || undefined}
+                            className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+                          />
+                          <input
+                            type="time"
+                            value={slot.end_time || ""}
+                            onChange={(e) => updateSpecialScheduleDay(slot.day_of_week, "end_time", e.target.value)}
+                            disabled={!slot.is_active}
+                            min={baseSlot?.start_time || undefined}
+                            max={baseSlot?.end_time || undefined}
+                            className="rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+                          />
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ))}
+                    </div>
+                    {canManage && <button onClick={() => void saveSpecialSchedule()} className="mt-4 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white">שמור שינוי זמני</button>}
+                  </div>
+
+                  <div className="rounded-lg bg-white p-6 shadow">
+                    <div className="mb-4 text-lg font-medium text-gray-900">שינויים זמניים קיימים</div>
+                    {defaultsLoading ? <div className="text-sm text-gray-500">טוען...</div> : (
+                      <div className="space-y-3">
+                        {(defaultsData?.special_schedules || []).length === 0 ? (
+                          <div className="rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-500">אין כרגע שחרורים או זמנים מיוחדים שמוגדרים במערכת.</div>
+                        ) : (
+                          (defaultsData?.special_schedules || []).map((setting) => (
+                            <div key={setting.id} className="rounded-md border border-gray-200 p-4 text-sm">
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <div className="font-medium">
+                                    {setting.homeroom_name || (setting.grade_name ? `שכבה ${setting.grade_name}` : "יעד לא ידוע")}
+                                  </div>
+                                  <div className="mt-1 text-xs text-gray-500">
+                                    {setting.start_date} עד {setting.end_date}
+                                  </div>
+                                  {setting.reason ? <div className="mt-1 text-xs text-gray-600">{setting.reason}</div> : null}
+                                </div>
+                                {canManage ? (
+                                  <button onClick={() => void deleteSpecialSchedule(setting.id)} className="text-sm font-medium text-red-600">
+                                    מחק
+                                  </button>
+                                ) : null}
+                              </div>
+                              <div className="mt-3 space-y-1">
+                                {setting.weekly_schedule.map((slot) => (
+                                  <div key={`${setting.id}-${slot.day_of_week}`} className="text-gray-600">
+                                    {dayLabels[slot.day_of_week]}: {slot.is_active ? `${slot.start_time} - ${slot.end_time}` : "לא לומדים"}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     )}
                   </div>

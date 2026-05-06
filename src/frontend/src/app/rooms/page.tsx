@@ -247,13 +247,13 @@ export default function RoomsPage() {
   };
 
   const handleAddRoom = () => {
-    console.log('handleAddRoom called - new version with homeroom assignment');
+    console.log('handleAddRoom called');
     // Create a modal-like dialog for room creation
     const dialog = document.createElement('div');
     dialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     dialog.innerHTML = `
       <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
-        <h3 class="text-lg font-bold mb-4">הוספת חדר חדש (עם אפשרות כיתת אם)</h3>
+        <h3 class="text-lg font-bold mb-4">הוספת חדר חדש</h3>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="mb-4">
@@ -317,23 +317,6 @@ export default function RoomsPage() {
           </label>
         </div>
         
-        <div class="mb-6">
-          <label class="flex items-center">
-            <input type="checkbox" id="assignAsHomeroom" class="ml-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-            <span class="text-sm font-medium text-gray-700">שייך חדר זה ככיתת אם</span>
-          </label>
-        </div>
-        
-        <div id="homeroomAssignments" class="mb-6 hidden">
-          <h4 class="text-md font-semibold mb-3">הקצאת כיתות אם</h4>
-          <div id="homeroomList" class="space-y-3">
-            <!-- Homeroom assignments will be added here dynamically -->
-          </div>
-          <button type="button" id="addHomeroomBtn" class="mt-3 px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700">
-            הוסף כיתת אם
-          </button>
-        </div>
-        
         <div class="flex justify-end space-x-2 space-x-reverse">
           <button id="cancelBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">ביטול</button>
           <button id="addBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">הוסף חדר</button>
@@ -349,14 +332,8 @@ export default function RoomsPage() {
     const wingSelect = dialog.querySelector('#wing') as HTMLSelectElement;
     const roomTypeSelect = dialog.querySelector('#roomType') as HTMLSelectElement;
     const hasProjectorCheckbox = dialog.querySelector('#hasProjector') as HTMLInputElement;
-    const assignAsHomeroomCheckbox = dialog.querySelector('#assignAsHomeroom') as HTMLInputElement;
-    const homeroomAssignmentsDiv = dialog.querySelector('#homeroomAssignments') as HTMLDivElement;
-    const homeroomListDiv = dialog.querySelector('#homeroomList') as HTMLDivElement;
-    const addHomeroomBtn = dialog.querySelector('#addHomeroomBtn') as HTMLButtonElement;
     const cancelBtn = dialog.querySelector('#cancelBtn') as HTMLButtonElement;
     const addBtn = dialog.querySelector('#addBtn') as HTMLButtonElement;
-    
-    let homeroomAssignments: Array<{gradeId: string, classNumber: number, maxStudents: number, schoolYear: number}> = [];
     
     // Function to determine room location from room number
     const getRoomLocation = (roomNumber: string) => {
@@ -423,120 +400,6 @@ export default function RoomsPage() {
       }
     });
     
-    // Function to create homeroom assignment form
-    const createHomeroomAssignmentForm = (index: number) => {
-      const currentYear = new Date().getFullYear();
-      console.log('Creating homeroom assignment form, available grades:', grades);
-      
-      // Fallback grades if API fails
-      const fallbackGrades = [
-        { id: 'a6a25529-fe66-443e-9473-3b3d5c616de3', name: 'א' },
-        { id: '9e542f84-7e18-49fa-97fd-ebc8ef95ae98', name: 'ב' },
-        { id: '844fb944-baf8-4553-92cf-5c4deb0d4b52', name: 'ג' },
-        { id: '14bd598c-d895-477c-a41a-486d56e586bb', name: 'ד' },
-        { id: '3b39363e-6f36-44a6-9455-3dcddf6b236c', name: 'ה' },
-        { id: '5082538c-ef31-47e8-b3a3-3f066e2e3f12', name: 'ו' }
-      ];
-      
-      const gradesToUse = grades.length > 0 ? grades : fallbackGrades;
-      const gradesOptions = gradesToUse.map(grade => 
-        `<option value="${grade.id}">${grade.name}</option>`
-      ).join('');
-      
-      console.log('Grades options:', gradesOptions);
-      
-      return `
-        <div class="homeroom-assignment border border-gray-200 rounded p-3" data-index="${index}">
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">שכבה:</label>
-              <select class="grade-select w-full px-2 py-1 border border-gray-300 rounded-md text-sm">
-                <option value="">בחר שכבה</option>
-                ${gradesOptions}
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">מספר כיתה:</label>
-              <input type="number" class="class-number w-full px-2 py-1 border border-gray-300 rounded-md text-sm" min="1" max="15" placeholder="1">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">תכולה מקסימלית:</label>
-              <input type="number" class="max-students w-full px-2 py-1 border border-gray-300 rounded-md text-sm" min="1" max="50" value="35">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">שנה"ל:</label>
-              <input type="number" class="school-year w-full px-2 py-1 border border-gray-300 rounded-md text-sm" value="${currentYear}" min="${currentYear}" max="${currentYear + 1}">
-            </div>
-          </div>
-          <button type="button" class="remove-homeroom mt-2 px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
-            הסר
-          </button>
-        </div>
-      `;
-    };
-    
-    // Toggle homeroom assignments section
-    const toggleHomeroomAssignments = () => {
-      console.log('Toggle homeroom assignments, checkbox checked:', assignAsHomeroomCheckbox.checked);
-      if (assignAsHomeroomCheckbox.checked) {
-        homeroomAssignmentsDiv.classList.remove('hidden');
-        if (homeroomAssignments.length === 0) {
-          console.log('Adding first homeroom assignment');
-          addHomeroomAssignment();
-        }
-      } else {
-        homeroomAssignmentsDiv.classList.add('hidden');
-        homeroomAssignments = [];
-        homeroomListDiv.innerHTML = '';
-      }
-    };
-    
-    // Add homeroom assignment
-    const addHomeroomAssignment = () => {
-      const index = homeroomAssignments.length;
-      homeroomListDiv.insertAdjacentHTML('beforeend', createHomeroomAssignmentForm(index));
-      
-      // Add remove event listener
-      const newAssignment = homeroomListDiv.querySelector(`[data-index="${index}"] .remove-homeroom`) as HTMLButtonElement;
-      if (newAssignment) {
-        newAssignment.addEventListener('click', () => {
-          const assignmentDiv = homeroomListDiv.querySelector(`[data-index="${index}"]`);
-          if (assignmentDiv) {
-            assignmentDiv.remove();
-            homeroomAssignments = homeroomAssignments.filter((_, i) => i !== index);
-          }
-        });
-      }
-      
-      // Add grade change event listener to auto-update room type
-      const gradeSelect = homeroomListDiv.querySelector(`[data-index="${index}"] .grade-select`) as HTMLSelectElement;
-      if (gradeSelect) {
-        gradeSelect.addEventListener('change', () => {
-          const selectedGradeName = gradeSelect.options[gradeSelect.selectedIndex]?.text;
-          if (selectedGradeName) {
-            // Map grade to room type
-            const gradeToRoomType: Record<string, string> = {
-              'א': 'CLASSROOM_A',
-              'ב': 'CLASSROOM_B', 
-              'ג': 'CLASSROOM_C',
-              'ד': 'CLASSROOM_D',
-              'ה': 'CLASSROOM_E',
-              'ו': 'CLASSROOM_F'
-            };
-            
-            const targetRoomType = gradeToRoomType[selectedGradeName];
-            if (targetRoomType) {
-              roomTypeSelect.value = targetRoomType;
-              console.log(`Auto-selected room type: ${targetRoomType} for grade: ${selectedGradeName}`);
-            }
-          }
-        });
-      }
-    };
-    
-    assignAsHomeroomCheckbox.addEventListener('change', toggleHomeroomAssignments);
-    addHomeroomBtn.addEventListener('click', addHomeroomAssignment);
-    
     const closeModal = () => {
       document.body.removeChild(dialog);
     };
@@ -556,35 +419,7 @@ export default function RoomsPage() {
         return;
       }
       
-      // Collect homeroom assignments if checkbox is checked
-      let finalHomeroomAssignments: Array<{gradeId: string, classNumber: number, maxStudents: number, schoolYear: number}> = [];
-      
-      if (assignAsHomeroomCheckbox.checked) {
-        const assignmentElements = Array.from(homeroomListDiv.querySelectorAll('.homeroom-assignment'));
-        
-        for (const element of assignmentElements) {
-          const gradeSelect = element.querySelector('.grade-select') as HTMLSelectElement;
-          const classNumberInput = element.querySelector('.class-number') as HTMLInputElement;
-          const maxStudentsInput = element.querySelector('.max-students') as HTMLInputElement;
-          const schoolYearInput = element.querySelector('.school-year') as HTMLInputElement;
-          
-          if (gradeSelect.value && classNumberInput.value) {
-            finalHomeroomAssignments.push({
-              gradeId: gradeSelect.value,
-              classNumber: parseInt(classNumberInput.value),
-              maxStudents: parseInt(maxStudentsInput.value) || 35,
-              schoolYear: parseInt(schoolYearInput.value) || new Date().getFullYear()
-            });
-          }
-        }
-        
-        if (finalHomeroomAssignments.length === 0) {
-          alert('אם בחרת לשייך חדר ככיתת אם, עליך להוסיף לפחות הקצאה אחת');
-          return;
-        }
-      }
-      
-      addRoom(roomNumber, capacity, roomType, floor, wing, hasProjector, assignAsHomeroomCheckbox.checked, finalHomeroomAssignments);
+      addRoom(roomNumber, capacity, roomType, floor, wing, hasProjector);
       closeModal();
     });
     
