@@ -9,7 +9,7 @@ import {
 } from "@/lib/afterHoursMaintenance";
 import HebrewDateField from "@/components/HebrewDateField";
 import { BASE_ROOM_REQUEST_ACTIVITY_OPTIONS } from "@/lib/schedulingActivityOptions";
-import { RecurringSchedulePageContent } from "../recuringSchedule/page";
+import { RecurringSchedulePageContent } from "../recuringSchedule/RecurringSchedulePageContent";
 
 interface Room {
   id: number | string;
