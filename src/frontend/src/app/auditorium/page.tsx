@@ -198,11 +198,11 @@ export default function AuditoriumPage() {
   }, [defaultsData, form.room_id]);
 
   const loadDefaults = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/auditoriums/default-settings");
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/auditoriums/default-settings");
     const data = await response.json();
 
     if (!data.success) {
-      throw new Error(data.error || "failed");
+      throw new Error(data.error || "הפעולה נכשלה");
     }
 
     setDefaultsData(data.data);
@@ -368,7 +368,7 @@ export default function AuditoriumPage() {
 
     try {
       setSaving(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/auditoriums/default-settings/room", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/auditoriums/default-settings/room", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

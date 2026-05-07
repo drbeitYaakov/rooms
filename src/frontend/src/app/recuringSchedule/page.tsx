@@ -127,7 +127,7 @@ export default function RecurringSchedulePage({
   useEffect(() => {
     const loadActiveAcademicYear = async () => {
       try {
-        const response = await authenticatedFetch("http://localhost:3001/api/academic-years/active");
+        const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/academic-years/active");
         const data: ActiveAcademicYearResponse = await response.json();
 
         if (!data.success) {
@@ -187,7 +187,7 @@ export default function RecurringSchedulePage({
     setResult(null);
 
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/room-requests/groups", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/room-requests/groups", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

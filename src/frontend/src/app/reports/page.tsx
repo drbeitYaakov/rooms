@@ -67,9 +67,9 @@ export default function ReportsPage() {
       const { startDate, endDate } = getDateRange(selectedPeriod);
       
       const [utilizationRes, conflictsRes, statisticsRes] = await Promise.all([
-        authenticatedFetch(`http://localhost:3001/api/reports/utilization?startDate=${startDate}&endDate=${endDate}`),
-        authenticatedFetch(`http://localhost:3001/api/reports/conflicts?startDate=${startDate}&endDate=${endDate}`),
-        authenticatedFetch(`http://localhost:3001/api/reports/statistics?startDate=${startDate}&endDate=${endDate}`)
+        authenticatedFetch(`https://rooms-ma9h.onrender.com/api/reports/utilization?startDate=${startDate}&endDate=${endDate}`),
+        authenticatedFetch(`https://rooms-ma9h.onrender.com/api/reports/conflicts?startDate=${startDate}&endDate=${endDate}`),
+        authenticatedFetch(`https://rooms-ma9h.onrender.com/api/reports/statistics?startDate=${startDate}&endDate=${endDate}`)
       ]);
 
       const utilization = await utilizationRes.json();
@@ -117,7 +117,7 @@ export default function ReportsPage() {
     try {
       const { startDate, endDate } = getDateRange(selectedPeriod);
       const response = await authenticatedFetch(
-        `http://localhost:3001/api/reports/export?type=${type}&format=${format}&startDate=${startDate}&endDate=${endDate}`
+        `https://rooms-ma9h.onrender.com/api/reports/export?type=${type}&format=${format}&startDate=${startDate}&endDate=${endDate}`
       );
       const data = await response.json();
       

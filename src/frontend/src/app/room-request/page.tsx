@@ -86,7 +86,7 @@ export default function RoomRequestPage() {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const response = await authenticatedFetch("http://localhost:3001/api/rooms");
+        const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/rooms");
         const data = await response.json();
 
         if (data.success) {
@@ -160,7 +160,7 @@ export default function RoomRequestPage() {
         requester_id: session?.user?.id,
       };
 
-      const response = await authenticatedFetch("http://localhost:3001/api/room-requests", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/room-requests", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

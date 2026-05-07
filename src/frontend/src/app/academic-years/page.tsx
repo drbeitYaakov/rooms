@@ -54,10 +54,10 @@ export default function AcademicYearsPage() {
   const loadAcademicYears = async () => {
     try {
       setLoading(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/academic-years");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/academic-years");
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || "failed");
+        throw new Error(data.error || "הפעולה נכשלה");
       }
       setAcademicYears(data.data.academic_years || []);
     } catch (error) {
@@ -78,7 +78,7 @@ export default function AcademicYearsPage() {
 
     try {
       setSaving(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/academic-years", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/academic-years", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,7 +87,7 @@ export default function AcademicYearsPage() {
       });
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || "failed");
+        throw new Error(data.error || "הפעולה נכשלה");
       }
 
       setForm(EMPTY_FORM);
@@ -111,12 +111,12 @@ export default function AcademicYearsPage() {
 
     try {
       setActivatingYearId(year.id);
-      const response = await authenticatedFetch(`http://localhost:3001/api/academic-years/${year.id}/activate`, {
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/academic-years/${year.id}/activate`, {
         method: "POST",
       });
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || "failed");
+        throw new Error(data.error || "הפעולה נכשלה");
       }
 
       await loadAcademicYears();
@@ -130,7 +130,7 @@ export default function AcademicYearsPage() {
 
   const handleArchiveToggle = async (year: AcademicYear) => {
     try {
-      const response = await authenticatedFetch(`http://localhost:3001/api/academic-years/${year.id}`, {
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/academic-years/${year.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -141,7 +141,7 @@ export default function AcademicYearsPage() {
       });
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || "failed");
+        throw new Error(data.error || "הפעולה נכשלה");
       }
 
       await loadAcademicYears();

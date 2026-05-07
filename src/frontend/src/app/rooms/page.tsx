@@ -94,7 +94,7 @@ export default function RoomsPage() {
         ...(statusFilters.floor && { floor: statusFilters.floor })
       });
 
-      const response = await authenticatedFetch(`http://localhost:3001/api/calendar/grid?${params}`);
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/calendar/grid?${params}`);
       const data = await response.json();
       
       if (data.success) {
@@ -174,7 +174,7 @@ export default function RoomsPage() {
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const response = await authenticatedFetch('http://localhost:3001/api/rooms');
+      const response = await authenticatedFetch('https://rooms-ma9h.onrender.com/api/rooms');
       const data = await response.json();
       
       if (data.success) {
@@ -186,7 +186,7 @@ export default function RoomsPage() {
           roomsData.map(async (room: any) => {
             try {
               const availabilityResponse = await authenticatedFetch(
-                `http://localhost:3001/api/rooms/${room.id}/availability?date=${today}`
+                `https://rooms-ma9h.onrender.com/api/rooms/${room.id}/availability?date=${today}`
               );
               const availabilityData = await availabilityResponse.json();
               
@@ -232,7 +232,7 @@ export default function RoomsPage() {
 
   const fetchGrades = async () => {
     try {
-      const response = await authenticatedFetch('http://localhost:3001/api/rooms/grades');
+      const response = await authenticatedFetch('https://rooms-ma9h.onrender.com/api/rooms/grades');
       const data = await response.json();
       
       if (data.success) {
@@ -470,7 +470,7 @@ export default function RoomsPage() {
     homeroomAssignments: Array<{gradeId: string, classNumber: number, maxStudents: number, schoolYear: number}> = []
   ) => {
     try {
-      const response = await authenticatedFetch('http://localhost:3001/api/rooms', {
+      const response = await authenticatedFetch('https://rooms-ma9h.onrender.com/api/rooms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -599,7 +599,7 @@ export default function RoomsPage() {
 
   const updateRoom = async (roomId: string, updates: any) => {
     try {
-      const response = await authenticatedFetch(`http://localhost:3001/api/rooms/${roomId}`, {
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/rooms/${roomId}`, {
         method: 'PUT',
         body: JSON.stringify(updates),
       });
@@ -626,7 +626,7 @@ export default function RoomsPage() {
 
   const deleteRoom = async (roomId: string) => {
     try {
-      const response = await authenticatedFetch(`http://localhost:3001/api/rooms/${roomId}`, {
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/rooms/${roomId}`, {
         method: 'DELETE',
       });
 

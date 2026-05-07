@@ -229,7 +229,7 @@ export default function RoomPrioritiesPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/room-priorities");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/room-priorities");
       const result = await response.json();
 
       if (!result.success) {
@@ -361,7 +361,7 @@ export default function RoomPrioritiesPage() {
         room_ids: defaultOrders[roomType.key] || [],
       }));
 
-      const response = await authenticatedFetch("http://localhost:3001/api/room-priorities", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/room-priorities", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ defaults, overrides }),
@@ -404,7 +404,6 @@ export default function RoomPrioritiesPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">ברירת מחדל לפי סוג חדר</h2>
-                <p className="mt-1 text-sm text-slate-600">כרטיסים קטנים וצפופים יותר כדי שייכנסו טוב יותר באותו מסך.</p>
               </div>
               <select
                 value={selectedType}
@@ -440,7 +439,6 @@ export default function RoomPrioritiesPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">חריגי שעות</h2>
-                <p className="mt-1 text-sm text-slate-600">כל חריג מוצג כבלוק נפרד, והשיבוצים שלו יושבים בשורה חדשה מתחת.</p>
               </div>
               <button
                 type="button"

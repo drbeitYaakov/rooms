@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "@/lib/auth-backend-bridge";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
 
 type MfaStatus = {
   mfaEnabled: boolean;
@@ -63,13 +63,13 @@ export default function SecurityPage() {
       const payload = await response.json();
 
       if (!response.ok) {
-        setError(payload?.error || "Failed to initialize MFA setup");
+        setError(payload?.error || "אתחול הגדרת MFA נכשל");
         return;
       }
 
       setSetupSecret(payload.data.secret);
       setOtpAuthUrl(payload.data.otpAuthUrl);
-      setMessage("MFA setup initialized. Add the secret to your authenticator app and verify with a code.");
+      setMessage("הגדרת MFA אותחלה. הוסיפו את הסוד לאפליקציית האימות ואמתו בעזרת קוד.");
     } finally {
       setIsLoading(false);
     }
@@ -88,13 +88,13 @@ export default function SecurityPage() {
       const payload = await response.json();
 
       if (!response.ok) {
-        setError(payload?.error || "Failed to enable MFA");
+        setError(payload?.error || "הפעלת MFA נכשלה");
         return;
       }
 
       setVerificationCode("");
       setCurrentPassword("");
-      setMessage("MFA enabled successfully.");
+      setMessage("MFA הופעל בהצלחה.");
       await loadStatus();
     } finally {
       setIsLoading(false);
@@ -117,7 +117,7 @@ export default function SecurityPage() {
       const payload = await response.json();
 
       if (!response.ok) {
-        setError(payload?.error || "Failed to disable MFA");
+        setError(payload?.error || "כיבוי MFA נכשל");
         return;
       }
 
@@ -125,7 +125,7 @@ export default function SecurityPage() {
       setDisableCode("");
       setSetupSecret("");
       setOtpAuthUrl("");
-      setMessage("MFA disabled successfully.");
+      setMessage("MFA כובה בהצלחה.");
       await loadStatus();
     } finally {
       setIsLoading(false);
@@ -133,7 +133,7 @@ export default function SecurityPage() {
   };
 
   if (status === "loading" || !session) {
-    return <div className="p-6">Loading...</div>;
+    return <div className="p-6">טוען...</div>;
   }
 
   return (

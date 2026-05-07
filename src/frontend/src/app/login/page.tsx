@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -35,7 +35,7 @@ export default function LoginPage() {
         const loginPayload = await loginResponse.json();
 
         if (!loginResponse.ok) {
-          setErrorMessage(loginPayload?.error || "Invalid credentials");
+          setErrorMessage(loginPayload?.error || "פרטי ההתחברות שגויים");
           return;
         }
 
@@ -54,12 +54,12 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setErrorMessage(isMfaStep ? "Invalid MFA code" : "Invalid credentials");
+        setErrorMessage(isMfaStep ? "קוד ה-MFA שגוי" : "פרטי ההתחברות שגויים");
       } else {
         window.location.href = "/";
       }
     } catch (error) {
-      setErrorMessage("An error occurred");
+      setErrorMessage("אירעה שגיאה");
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +70,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {isMfaStep ? "Enter your verification code" : "Sign in to your account"}
+            {isMfaStep ? "הזינו את קוד האימות שלכם" : "התחברות לחשבון"}
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -82,7 +82,7 @@ export default function LoginPage() {
                 type="email"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                placeholder="כתובת אימייל"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isMfaStep}
@@ -95,7 +95,7 @@ export default function LoginPage() {
                 type="password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                placeholder="סיסמה"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isMfaStep}
@@ -111,7 +111,7 @@ export default function LoginPage() {
                   pattern="[0-9]{6}"
                   required
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="6-digit verification code"
+                  placeholder="קוד אימות בן 6 ספרות"
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
                 />
@@ -129,7 +129,7 @@ export default function LoginPage() {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
-              {isLoading ? "Signing in..." : isMfaStep ? "Verify and sign in" : "Sign in"}
+              {isLoading ? "מתחבר..." : isMfaStep ? "אימות והתחברות" : "התחברות"}
             </button>
           </div>
           {isMfaStep && (
@@ -142,7 +142,7 @@ export default function LoginPage() {
               }}
               className="w-full text-sm text-gray-600 hover:text-gray-900"
             >
-              Back
+              חזרה
             </button>
           )}
         </form>

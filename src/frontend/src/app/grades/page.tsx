@@ -43,7 +43,7 @@ export default function GradesPage() {
 
   const fetchGrades = async () => {
     try {
-      const response = await authenticatedFetch('http://localhost:3001/api/grades');
+      const response = await authenticatedFetch('https://rooms-ma9h.onrender.com/api/grades');
       const data = await response.json();
       
       if (Array.isArray(data)) {
@@ -62,7 +62,7 @@ export default function GradesPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await authenticatedFetch('http://localhost:3001/api/users');
+      const response = await authenticatedFetch('https://rooms-ma9h.onrender.com/api/users');
       const data = await response.json();
       
       if (data.success) {
@@ -83,8 +83,8 @@ export default function GradesPage() {
 
     try {
       const url = editingGrade 
-        ? `http://localhost:3001/api/grades/${editingGrade.id}`
-        : 'http://localhost:3001/api/grades';
+        ? `https://rooms-ma9h.onrender.com/api/grades/${editingGrade.id}`
+        : 'https://rooms-ma9h.onrender.com/api/grades';
       
       const method = editingGrade ? 'PUT' : 'POST';
       
@@ -131,7 +131,7 @@ export default function GradesPage() {
     }
 
     try {
-      const response = await authenticatedFetch(`http://localhost:3001/api/grades/${gradeId}`, {
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/grades/${gradeId}`, {
         method: 'DELETE',
       });
 

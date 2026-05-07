@@ -402,10 +402,10 @@ export default function HomeroomsPage() {
   const getSchoolYearLabel = () => activeAcademicYear?.school_year_label || activeAcademicYear?.year_name || "";
 
   const loadActiveAcademicYear = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/academic-years/active");
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/academic-years/active");
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || "failed");
+      throw new Error(data.error || "הפעולה נכשלה");
     }
     const nextActiveYear = data.data.academic_year || null;
     setActiveAcademicYear(nextActiveYear);
@@ -419,19 +419,19 @@ export default function HomeroomsPage() {
   };
 
   const loadAcademicYears = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/academic-years");
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/academic-years");
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || "failed");
+      throw new Error(data.error || "הפעולה נכשלה");
     }
     setAcademicYears(data.data.academic_years || []);
   };
 
   const loadHistorySchoolYears = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/homerooms/history/school-years");
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/history/school-years");
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || "failed");
+      throw new Error(data.error || "הפעולה נכשלה");
     }
 
     const activeLabel = activeAcademicYear?.school_year_label || activeAcademicYear?.year_name || "";
@@ -445,7 +445,7 @@ export default function HomeroomsPage() {
   const loadHomerooms = async () => {
     let schoolYearLabel = getSchoolYearLabel();
     if (!schoolYearLabel) {
-      const yearResponse = await authenticatedFetch("http://localhost:3001/api/academic-years/active");
+      const yearResponse = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/academic-years/active");
       const yearData = await yearResponse.json();
       if (yearData.success) {
         const nextActiveYear = yearData.data.academic_year || null;
@@ -455,21 +455,21 @@ export default function HomeroomsPage() {
     }
     const response = await authenticatedFetch(
       schoolYearLabel
-        ? `http://localhost:3001/api/homerooms?school_year=${encodeURIComponent(schoolYearLabel)}`
-        : "http://localhost:3001/api/homerooms"
+        ? `https://rooms-ma9h.onrender.com/api/homerooms?school_year=${encodeURIComponent(schoolYearLabel)}`
+        : "https://rooms-ma9h.onrender.com/api/homerooms"
     );
     const data = await response.json();
-    if (!data.success) throw new Error(data.error || "failed");
+    if (!data.success) throw new Error(data.error || "הפעולה נכשלה");
     setHomerooms(data.data.homerooms);
   };
 
   const loadHistoricalHomerooms = async (schoolYear: string) => {
     try {
       setHistoryLoading(true);
-      const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/history?school_year=${encodeURIComponent(schoolYear)}`);
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/history?school_year=${encodeURIComponent(schoolYear)}`);
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || "failed");
+        throw new Error(data.error || "הפעולה נכשלה");
       }
 
       const nextHomerooms = data.data.homerooms || [];
@@ -494,11 +494,11 @@ export default function HomeroomsPage() {
       setHistoryDetailsLoading(true);
       const schoolYear = schoolYearOverride || selectedHistorySchoolYear;
       const response = await authenticatedFetch(
-        `http://localhost:3001/api/homerooms/history/${homeroom.id}/assignments?school_year=${encodeURIComponent(schoolYear)}`
+        `https://rooms-ma9h.onrender.com/api/homerooms/history/${homeroom.id}/assignments?school_year=${encodeURIComponent(schoolYear)}`
       );
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || "failed");
+        throw new Error(data.error || "הפעולה נכשלה");
       }
       setSelectedHistoricalHomeroom(data.data.homeroom);
       setHistoricalAssignments(data.data.assignments || []);
@@ -512,7 +512,7 @@ export default function HomeroomsPage() {
 
   const loadGrades = async () => {
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/grades");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/grades");
       const data = await response.json();
       if (Array.isArray(data)) {
         setGrades(data);
@@ -527,7 +527,7 @@ export default function HomeroomsPage() {
     }
 
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/homerooms/grades");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/grades");
       const data = await response.json();
       if (data.success && Array.isArray(data.data?.grades)) {
         setGrades(data.data.grades);
@@ -542,15 +542,15 @@ export default function HomeroomsPage() {
       return;
     }
 
-    throw new Error("failed to load grades");
+    throw new Error("טעינת השכבות נכשלה");
   };
 
   const loadDefaults = async () => {
     try {
       setDefaultsLoading(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/homerooms/default-settings");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/default-settings");
       const data = await response.json();
-      if (!data.success) throw new Error(data.error || "failed");
+      if (!data.success) throw new Error(data.error || "הפעולה נכשלה");
       setDefaultsData(data.data);
       setGradeForm((current) => ({ ...current, weekly_schedule: normalizeWeeklyScheduleForForm(data.data.system_default.weekly_schedule) }));
       setHomeroomForm((current) => ({ ...current, weekly_schedule: normalizeWeeklyScheduleForForm(data.data.system_default.weekly_schedule) }));
@@ -638,10 +638,10 @@ export default function HomeroomsPage() {
         params.set("homeroom_id", form.homeroom_id);
       }
 
-      const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/special-schedules/current-state?${params.toString()}`);
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/special-schedules/current-state?${params.toString()}`);
       const data = await response.json();
       if (!data.success) {
-        throw new Error(data.error || "failed");
+        throw new Error(data.error || "הפעולה נכשלה");
       }
 
       const currentState = data.data as SpecialScheduleCurrentState;
@@ -671,10 +671,10 @@ export default function HomeroomsPage() {
   };
 
   const loadRooms = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/rooms");
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/rooms");
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || "failed");
+      throw new Error(data.error || "הפעולה נכשלה");
     }
     setRooms(data.data.rooms || []);
   };
@@ -684,9 +684,9 @@ export default function HomeroomsPage() {
       setFilteredRooms([]);
       return;
     }
-    const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/available-rooms?grade_id=${gradeId}&school_year=${encodeURIComponent(getSchoolYearLabel())}`);
+    const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/available-rooms?grade_id=${gradeId}&school_year=${encodeURIComponent(getSchoolYearLabel())}`);
     const data = await response.json();
-    if (!data.success) throw new Error(data.error || "failed");
+    if (!data.success) throw new Error(data.error || "הפעולה נכשלה");
     setFilteredRooms(data.data.available_rooms);
   };
 
@@ -816,7 +816,7 @@ export default function HomeroomsPage() {
       return;
     }
 
-    const response = await authenticatedFetch("http://localhost:3001/api/homerooms/swap-rooms", {
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/swap-rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ swaps }),
@@ -849,7 +849,7 @@ export default function HomeroomsPage() {
 
     try {
       setIsSubmittingHomeroom(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/homerooms", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -875,7 +875,7 @@ export default function HomeroomsPage() {
 
   const handleUpdateHomeroom = async () => {
     if (!editingHomeroom) return;
-    const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/${editingHomeroom.id}`, {
+    const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/${editingHomeroom.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -897,7 +897,7 @@ export default function HomeroomsPage() {
 
   const deleteHomeroomRequest = async (id: number) => {
     if (!confirm("האם אתה בטוח שברצונך למחוק כיתת אם זו?")) return;
-    const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/${id}`, { method: "DELETE" });
+    const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/${id}`, { method: "DELETE" });
     const data = await response.json();
     if (!data.success) {
       alert(`שגיאה: ${data.error}`);
@@ -915,7 +915,7 @@ export default function HomeroomsPage() {
       return;
     }
 
-    const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/${id}`, { method: "DELETE" });
+    const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/${id}`, { method: "DELETE" });
     const data = await response.json();
     if (!data.success) {
       alert(`׳©׳’׳™׳׳”: ${data.error}`);
@@ -927,7 +927,7 @@ export default function HomeroomsPage() {
   const handleAssignTeacher = async (id: number) => {
     const teacherId = prompt("מזהה מורה:");
     if (!teacherId) return;
-    const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/${id}/assign-teacher`, {
+    const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/${id}/assign-teacher`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teacher_id: teacherId }),
@@ -941,7 +941,7 @@ export default function HomeroomsPage() {
   };
 
   const handleUtilizationReport = async () => {
-    const response = await authenticatedFetch("http://localhost:3001/api/homerooms/utilization-report", {
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/utilization-report", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ format: "csv", include_details: true }),
@@ -973,7 +973,7 @@ export default function HomeroomsPage() {
   const saveGradeDefault = async () => {
     try {
       setIsSavingGradeDefault(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/homerooms/default-settings/grade", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/default-settings/grade", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(gradeForm),
@@ -992,7 +992,7 @@ export default function HomeroomsPage() {
   const saveHomeroomOverride = async () => {
     try {
       setIsSavingHomeroomOverride(true);
-      const response = await authenticatedFetch("http://localhost:3001/api/homerooms/default-settings/homeroom", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/default-settings/homeroom", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...homeroomForm, homeroom_id: Number(homeroomForm.homeroom_id) }),
@@ -1024,7 +1024,7 @@ export default function HomeroomsPage() {
       grade_id: specialScheduleForm.target_type === "grade" ? specialScheduleForm.grade_id : null,
     };
 
-    const response = await authenticatedFetch("http://localhost:3001/api/homerooms/special-schedules", {
+    const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/special-schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1050,7 +1050,7 @@ export default function HomeroomsPage() {
       return;
     }
 
-    const response = await authenticatedFetch(`http://localhost:3001/api/homerooms/special-schedules/${id}`, {
+    const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/special-schedules/${id}`, {
       method: "DELETE",
     });
     const data = await response.json();

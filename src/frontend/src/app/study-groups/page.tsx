@@ -133,10 +133,13 @@ const mapStudyGroupsErrorMessage = (error: unknown): string => {
   const normalizedError = String(error || "").trim();
 
   switch (normalizedError) {
+    case "לא נמצאה שנת לימוד פעילה":
     case "No active academic year found":
       return "לא מוגדרת שנה פעילה במערכת. יש להגדיר או להפעיל שנה לימודית לפני יצירת הקבצה או שיבוץ.";
+    case "לשנה הפעילה חסר טווח תאריכים":
     case "Active academic year date range is missing":
       return "לשנה הפעילה חסר טווח תאריכים. יש להשלים תאריך התחלה ותאריך סיום.";
+    case "אין יותר תאריכים זמינים לשיבוץ במסגרת השנה הפעילה":
     case "No remaining scheduling dates are available in the active academic year":
       return "אין יותר תאריכים זמינים לשיבוץ במסגרת השנה הפעילה.";
     default:
@@ -170,7 +173,7 @@ export default function StudyGroupsPage() {
 
   const fetchStudyGroups = async () => {
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/study-groups");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/study-groups");
       const data = await response.json();
 
       if (data.success) {
@@ -187,7 +190,7 @@ export default function StudyGroupsPage() {
 
   const fetchHomerooms = async () => {
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/study-groups/classroom-options");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/study-groups/classroom-options");
       const data = await response.json();
 
       if (data.success) {
@@ -208,7 +211,7 @@ export default function StudyGroupsPage() {
 
   const fetchGradeGroupDefinitions = async () => {
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/study-groups/group-definitions");
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/study-groups/group-definitions");
       const data = await response.json();
 
       if (data.success) {
@@ -224,7 +227,7 @@ export default function StudyGroupsPage() {
   const handleSaveGradeGroupDefinition = async (definition: GradeGroupDefinition) => {
     try {
       const response = await authenticatedFetch(
-        `http://localhost:3001/api/study-groups/group-definitions/${encodeURIComponent(definition.grade_level)}/${definition.group_number}`,
+        `https://rooms-ma9h.onrender.com/api/study-groups/group-definitions/${encodeURIComponent(definition.grade_level)}/${definition.group_number}`,
         {
           method: "PUT",
           headers: {
@@ -255,7 +258,7 @@ export default function StudyGroupsPage() {
     }
 
     try {
-      const response = await authenticatedFetch(`http://localhost:3001/api/study-groups/${editingGroup.id}`, {
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/study-groups/${editingGroup.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -284,7 +287,7 @@ export default function StudyGroupsPage() {
     }
 
     try {
-      const response = await authenticatedFetch(`http://localhost:3001/api/study-groups/${groupId}`, {
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/study-groups/${groupId}`, {
         method: "DELETE",
       });
 
@@ -320,7 +323,7 @@ export default function StudyGroupsPage() {
     setIsSchedulingSelectedGroups(true);
 
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/study-groups/schedule", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/study-groups/schedule", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -349,7 +352,7 @@ export default function StudyGroupsPage() {
 
   const handleExportCalendar = async () => {
     try {
-      const response = await authenticatedFetch("http://localhost:3001/api/study-groups/export-calendar", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/study-groups/export-calendar", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1092,7 +1095,7 @@ function InlineAddGroupRow({
     try {
       setIsSaving(true);
 
-      const response = await authenticatedFetch("http://localhost:3001/api/study-groups", {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/study-groups", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

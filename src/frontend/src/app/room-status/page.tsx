@@ -66,7 +66,7 @@ export default function RoomStatusPage() {
         ...(filters.floor && { floor: filters.floor })
       });
 
-      const response = await authenticatedFetch(`http://localhost:3001/api/calendar/grid?${params}`);
+      const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/calendar/grid?${params}`);
       const data = await response.json();
       
       if (data.success) {

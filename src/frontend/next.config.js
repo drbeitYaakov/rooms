@@ -4,13 +4,13 @@ const nextConfig = {
   swcMinify: true,
   distDir: ".next-runtime",
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://rooms-ma9h.onrender.com',
   },
   async rewrites() {
     return [
       {
         source: '/api/:path((?!auth/).*)',
-        destination: 'http://localhost:3001/api/:path*', // Other API routes to backend
+        destination: 'https://rooms-ma9h.onrender.com/api/:path*', // Other API routes to backend
       },
     ];
   },
