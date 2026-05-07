@@ -76,16 +76,18 @@ const DAY_OPTIONS = [
 const ACTIVITY_OPTIONS = RECURRING_ROOM_REQUEST_ACTIVITY_OPTIONS;
 
 type DayHours = Record<number, { start: string; end: string }>;
+type RecurringSchedulePageProps = {
+  onClose?: () => void;
+  embedded?: boolean;
+};
 
 const getToday = () => new Date().toISOString().split("T")[0];
 
-export default function RecurringSchedulePage({
+export function RecurringSchedulePageContent({
   onClose,
   embedded = false,
-}: {
-  onClose: () => void;
-  embedded?: boolean;
-}) {
+}: RecurringSchedulePageProps) {
+  const handleClose = onClose ?? (() => window.history.back());
   const [groupName, setGroupName] = useState("");
   const [activityType, setActivityType] = useState("study_group");
   const [grade, setGrade] = useState("");
@@ -296,7 +298,7 @@ export default function RecurringSchedulePage({
               )}
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 {embedded ? "חזרה לחד פעמי" : "סגור"}
@@ -451,7 +453,7 @@ export default function RecurringSchedulePage({
           <div className="mt-8 flex justify-end gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
             >
               {embedded ? "חזרה" : "ביטול"}
@@ -569,4 +571,8 @@ export default function RecurringSchedulePage({
       </div>
     </div>
   );
+}
+
+export default function RecurringSchedulePage() {
+  return <RecurringSchedulePageContent />;
 }

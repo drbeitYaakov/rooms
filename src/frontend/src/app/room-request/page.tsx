@@ -9,7 +9,7 @@ import {
 } from "@/lib/afterHoursMaintenance";
 import HebrewDateField from "@/components/HebrewDateField";
 import { BASE_ROOM_REQUEST_ACTIVITY_OPTIONS } from "@/lib/schedulingActivityOptions";
-import RecurringSchedulePage from "../recuringSchedule/page";
+import { RecurringSchedulePageContent } from "../recuringSchedule/page";
 
 interface Room {
   id: number | string;
@@ -533,7 +533,7 @@ export default function RoomRequestPage() {
             </aside>
           </div>
         ) : (
-          <RecurringSchedulePage embedded onClose={() => setMode("single")} />
+          <RecurringSchedulePageContent embedded onClose={() => setMode("single")} />
         )}
       </div>
     </div>
