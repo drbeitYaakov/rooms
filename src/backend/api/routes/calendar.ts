@@ -130,72 +130,78 @@ function enrichAssignmentForDisplay(
 
 // Get calendar grid data - all rooms for each day/hour with availability
 router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  console.log('📅📅📅 Calendar API called with params:', req.query);
-  console.log('📅📅📅 User:', req.user?.id, req.user?.email, req.user?.role);
-  console.log('📅📅📅 Timestamp:', new Date().toISOString());
-  
-  const { 
-    start_date, 
-    end_date, 
-    room_type,
-    wing,
-    floor 
-  } = req.query;
+  let stage = 'start';
 
-  // Default to current week if no dates provided
-  const startDate = start_date ? new Date(start_date as string) : new Date();
-  const endDate = end_date ? new Date(end_date as string) : new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000);
-
-  // Get all active rooms with optional filters
-  let roomsQuery = db('rooms').where({ is_active: true });
-  
-  if (room_type) {
-    roomsQuery = roomsQuery.where('room_type', room_type);
-  }
-  
-  if (wing) {
-    roomsQuery = roomsQuery.where('wing', wing);
-  }
-  
-  if (floor) {
-    roomsQuery = roomsQuery.where('floor', parseInt(floor as string));
-  }
-
-  const rooms = await roomsQuery.orderBy('room_number', 'asc');
-  const roomTypeById = new Map(rooms.map((room: any) => [String(room.id), String(room.room_type || '')]));
-  console.log('📅 Found rooms:', rooms.length);
-  console.log('📅 Room IDs:', rooms.map(r => ({ id: r.id, number: r.room_number })));
-
-  // Get all assignments for the date range
-  console.log('📅 Querying assignments for date range:', startDate.toISOString(), 'to', endDate.toISOString());
-  
+  try {
+    console.log('📅📅📅 Calendar API called with params:', req.query);
+    console.log('📅📅📅 User:', req.user?.id, req.user?.email, req.user?.role);
+    console.log('📅📅📅 Timestamp:', new Date().toISOString());
     
-  // Get all active assignments and filter by both date and room in JavaScript
-  const allActiveAssignments = await db('assignments')
-    .where('status', 'active');
+    const { 
+      start_date, 
+      end_date, 
+      room_type,
+      wing,
+      floor 
+    } = req.query;
+
+    stage = 'parse-dates';
+    // Default to current week if no dates provided
+    const startDate = start_date ? new Date(start_date as string) : new Date();
+    const endDate = end_date ? new Date(end_date as string) : new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+    stage = 'query-rooms';
+    // Get all active rooms with optional filters
+    let roomsQuery = db('rooms').where({ is_active: true });
+    
+    if (room_type) {
+      roomsQuery = roomsQuery.where('room_type', room_type);
+    }
+    
+    if (wing) {
+      roomsQuery = roomsQuery.where('wing', wing);
+    }
+    
+    if (floor) {
+      roomsQuery = roomsQuery.where('floor', parseInt(floor as string));
+    }
+
+    const rooms = await roomsQuery.orderBy('room_number', 'asc');
+    const roomTypeById = new Map(rooms.map((room: any) => [String(room.id), String(room.room_type || '')]));
+    console.log('📅 Found rooms:', rooms.length);
+    console.log('📅 Room IDs:', rooms.map(r => ({ id: r.id, number: r.room_number })));
+
+    stage = 'query-assignments';
+    // Get all assignments for the date range
+    console.log('📅 Querying assignments for date range:', startDate.toISOString(), 'to', endDate.toISOString());
+    
+    // Get all active assignments and filter by both date and room in JavaScript
+    const allActiveAssignments = await db('assignments')
+      .where('status', 'active');
+    
+    console.log('📅 All active assignments (no room filter):', allActiveAssignments.length);
+    
+    // Debug: Show the structure of the first assignment to understand the fields
+    if (allActiveAssignments.length > 0) {
+      console.log('🔍 DEBUG: First assignment structure:', Object.keys(allActiveAssignments[0]));
+      console.log('🔍 DEBUG: Sample assignment data:', {
+        id: allActiveAssignments[0].id,
+        type: allActiveAssignments[0].type,
+        start_date: allActiveAssignments[0].start_date,
+        end_date: allActiveAssignments[0].end_date,
+        specific_date: allActiveAssignments[0].specific_date,
+        date: allActiveAssignments[0].date,
+        start_time: allActiveAssignments[0].start_time,
+        end_time: allActiveAssignments[0].end_time,
+        time_slots: allActiveAssignments[0].time_slots,
+        days_of_week: allActiveAssignments[0].days_of_week
+      });
+    }
   
-  console.log('📅 All active assignments (no room filter):', allActiveAssignments.length);
-  
-  // Debug: Show the structure of the first assignment to understand the fields
-  if (allActiveAssignments.length > 0) {
-    console.log('🔍 DEBUG: First assignment structure:', Object.keys(allActiveAssignments[0]));
-    console.log('🔍 DEBUG: Sample assignment data:', {
-      id: allActiveAssignments[0].id,
-      type: allActiveAssignments[0].type,
-      start_date: allActiveAssignments[0].start_date,
-      end_date: allActiveAssignments[0].end_date,
-      specific_date: allActiveAssignments[0].specific_date,
-      date: allActiveAssignments[0].date, // This might not exist!
-      start_time: allActiveAssignments[0].start_time,
-      end_time: allActiveAssignments[0].end_time,
-      time_slots: allActiveAssignments[0].time_slots,
-      days_of_week: allActiveAssignments[0].days_of_week
-    });
-  }
-  
-  // Filter by date range and room in JavaScript
-  const roomIds = rooms.map(room => room.id);
-  const assignments = allActiveAssignments.filter(assignment => {
+    stage = 'filter-assignments';
+    // Filter by date range and room in JavaScript
+    const roomIds = rooms.map(room => room.id);
+    const assignments = allActiveAssignments.filter(assignment => {
     // Handle different date field formats
     let assignmentDate;
     
@@ -247,17 +253,18 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
     console.log(`🔍 Assignment ${assignment.id}: date=${assignmentDateStr}, inRange=${dateInRange}, room=${assignment.room_id}, matches=${roomMatches}`);
     
     return dateInRange && roomMatches;
-  });
+    });
   
-  console.log('📅 Found assignments after filtering:', assignments.length);
+    console.log('📅 Found assignments after filtering:', assignments.length);
   
-  const studyGroupIds = Array.from(
-    new Set(
-      assignments
-        .filter((assignment) => assignment.assignable_type === 'study_group' && assignment.assignable_id)
-        .map((assignment) => String(assignment.assignable_id))
-    )
-  );
+    stage = 'collect-related-ids';
+    const studyGroupIds = Array.from(
+      new Set(
+        assignments
+          .filter((assignment) => assignment.assignable_type === 'study_group' && assignment.assignable_id)
+          .map((assignment) => String(assignment.assignable_id))
+      )
+    );
 
   const studyGroups = studyGroupIds.length > 0
     ? await db('groups')
@@ -695,6 +702,15 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
       }
     }
   });
+  } catch (error) {
+    console.error('❌ [calendar/grid] failed at stage:', stage, {
+      query: req.query,
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+      error
+    });
+    throw error;
+  }
 }));
 
 // Get room availability summary for a specific date
