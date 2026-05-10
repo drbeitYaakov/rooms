@@ -41,14 +41,19 @@ import { validateRuntimeSecurityConfig, verifyAccessToken } from './utils/tokenS
 dotenv.config();
 validateRuntimeSecurityConfig();
 
-const allowedOrigins = [process.env.FRONTEND_URL || 'http://localhost:3000'];
+const normalizeOrigin = (value: string) => value.trim().replace(/\/+$/, '');
+
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => normalizeOrigin(origin))
+  .filter(Boolean);
 
 const isAllowedOrigin = (origin?: string) => {
   if (!origin) {
     return process.env.NODE_ENV !== 'production';
   }
 
-  return allowedOrigins.includes(origin);
+  return allowedOrigins.includes(normalizeOrigin(origin));
 };
 
 const app = express();
@@ -130,7 +135,7 @@ io.use(async (socket, next) => {
     const token = tokenFromAuth || tokenFromHeader;
 
     if (!token) {
-      next(new Error('Authentication required'));
+      next(new Error('נדרש אימות משתמש'));
       return;
     }
 
@@ -161,7 +166,7 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', (room: string) => {
     if (!socket.data.user?.id) {
-      socket.emit('error', { message: 'Authentication required' });
+      socket.emit('error', { message: 'נדרש אימות משתמש' });
       return;
     }
 
