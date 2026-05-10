@@ -198,6 +198,10 @@ server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV}`);
   logger.info(`API URL: http://localhost:${PORT}/api`);
+  if (process.env.SKIP_STARTUP_AUDITORIUM_SYNC === 'true') {
+    logger.warn('Skipping auditorium default sync on startup because SKIP_STARTUP_AUDITORIUM_SYNC=true');
+    return;
+  }
   void db.transaction(async (trx) => {
     const today = new Date();
     const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
