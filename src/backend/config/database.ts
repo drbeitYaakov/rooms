@@ -6,6 +6,24 @@ const environment = process.env.NODE_ENV || 'development';
 export const config = knexConfig;
 export const db = knex(config[environment as keyof typeof config]);
 
+db.on('query-error', (error, query) => {
+  console.error('❌ Database query error:', {
+    message: error.message,
+    code: (error as NodeJS.ErrnoException).code,
+    sql: query?.sql,
+    bindings: query?.bindings
+  });
+});
+
+db.on('query', (query) => {
+  if (process.env.LOG_DB_QUERIES === 'true') {
+    console.log('🟦 Database query:', {
+      sql: query.sql,
+      bindings: query.bindings
+    });
+  }
+});
+
 // Test database connection
 export const testConnection = async (): Promise<boolean> => {
   try {

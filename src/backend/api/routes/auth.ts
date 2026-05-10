@@ -152,7 +152,7 @@ router.post('/register', authLimiter, asyncHandler(async (req: Request, res: Res
   if (!isPublicRegistrationEnabled()) {
     return res.status(403).json({
       success: false,
-      error: 'Public registration is disabled'
+      error: 'הרשמה ציבורית אינה זמינה'
     });
   }
 
@@ -160,7 +160,7 @@ router.post('/register', authLimiter, asyncHandler(async (req: Request, res: Res
   if (!email || !password || !name) {
     return res.status(400).json({
       success: false,
-      error: 'Email, password, and name are required'
+      error: 'חובה למלא אימייל, סיסמה ושם'
     });
   }
 
@@ -179,7 +179,7 @@ router.post('/register', authLimiter, asyncHandler(async (req: Request, res: Res
   if (existingUser) {
     return res.status(400).json({
       success: false,
-      error: 'User already exists'
+      error: 'המשתמש כבר קיים'
     });
   }
 
@@ -234,51 +234,72 @@ router.post('/register', authLimiter, asyncHandler(async (req: Request, res: Res
 // Login
 router.post('/login', authLimiter, asyncHandler(async (req: Request, res: Response) => {
   const { email, password, mfaCode, mfaToken } = req.body;
+  console.log('[AUTH LOGIN] Login attempt received', {
+    email: typeof email === 'string' ? normalizeEmail(email) : null,
+    hasPassword: Boolean(password),
+    hasMfaCode: Boolean(mfaCode),
+    hasMfaToken: Boolean(mfaToken)
+  });
 
   // Validate input
   if (!email || !password) {
     return res.status(400).json({
       success: false,
-      error: 'Email and password are required'
+      error: 'חובה למלא אימייל וסיסמה'
     });
   }
 
   const normalizedEmail = normalizeEmail(email);
+  console.log('[AUTH LOGIN] Normalized email', { normalizedEmail });
 
   // Find user
   const user = await db('users')
     .where({ email: normalizedEmail, is_active: true })
     .first();
 
+  console.log('[AUTH LOGIN] User lookup completed', {
+    normalizedEmail,
+    foundUser: Boolean(user),
+    userId: user?.id ?? null
+  });
+
   if (!user) {
     return res.status(401).json({
       success: false,
-      error: 'Invalid credentials'
+      error: 'פרטי ההתחברות שגויים'
     });
   }
 
   if (isUserLocked(user)) {
     return res.status(423).json({
       success: false,
-      error: 'Account is temporarily locked due to repeated failed login attempts'
+      error: 'החשבון נחסם זמנית בעקבות ניסיונות התחברות כושלים'
     });
   }
 
   // Check password
   const passwordHash = getUserPasswordHash(user);
+  console.log('[AUTH LOGIN] Password hash presence', {
+    userId: user.id,
+    hasPasswordHash: Boolean(passwordHash)
+  });
   if (!passwordHash) {
     return res.status(401).json({
       success: false,
-      error: 'Invalid credentials'
+      error: 'פרטי ההתחברות שגויים'
     });
   }
 
   const isPasswordValid = await bcrypt.compare(password, passwordHash);
+  console.log('[AUTH LOGIN] Password validation result', {
+    userId: user.id,
+    isPasswordValid
+  });
   if (!isPasswordValid) {
     await registerFailedLoginAttempt(user, req);
     return res.status(401).json({
       success: false,
-      error: 'Invalid credentials'
+      error: 'פרטי ההתחברות שגויים'
     });
   }
 
@@ -306,7 +327,7 @@ router.post('/login', authLimiter, asyncHandler(async (req: Request, res: Respon
     if (!mfaToken) {
       return res.status(401).json({
         success: false,
-        error: 'MFA challenge token is required'
+        error: 'נדרש טוקן אתגר של MFA'
       });
     }
 
@@ -316,14 +337,14 @@ router.post('/login', authLimiter, asyncHandler(async (req: Request, res: Respon
     } catch {
       return res.status(401).json({
         success: false,
-        error: 'Invalid MFA challenge'
+        error: 'אתגר ה-MFA אינו תקין'
       });
     }
 
     if (challengePayload.id !== user.id || normalizeEmail(challengePayload.email) !== user.email) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid MFA challenge'
+        error: 'אתגר ה-MFA אינו תקין'
       });
     }
 
@@ -339,7 +360,7 @@ router.post('/login', authLimiter, asyncHandler(async (req: Request, res: Respon
 
       return res.status(401).json({
         success: false,
-        error: 'Invalid MFA code'
+        error: 'קוד ה-MFA שגוי'
       });
     }
   }
@@ -351,7 +372,14 @@ router.post('/login', authLimiter, asyncHandler(async (req: Request, res: Respon
     role: normalizeRole(user.role)
   });
 
+  console.log('[AUTH LOGIN] Access token created', {
+    userId: user.id
+  });
+
   await clearFailedLoginState(user.id);
+  console.log('[AUTH LOGIN] Cleared failed login state', {
+    userId: user.id
+  });
 
   logAuth(`User logged in: ${normalizedEmail} (${normalizeRole(user.role)})`);
   await recordAuditEvent({
@@ -364,6 +392,9 @@ router.post('/login', authLimiter, asyncHandler(async (req: Request, res: Respon
       last_login: new Date().toISOString()
     },
     req
+  });
+  console.log('[AUTH LOGIN] Audit event recorded', {
+    userId: user.id
   });
 
   res.json({
@@ -383,7 +414,7 @@ router.get('/mfa/status', authMiddleware, asyncHandler(async (req: Authenticated
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -405,14 +436,14 @@ router.post('/mfa/setup', authMiddleware, asyncHandler(async (req: Authenticated
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
   if (!currentPassword) {
     return res.status(400).json({
       success: false,
-      error: 'Current password is required'
+      error: 'חובה להזין את הסיסמה הנוכחית'
     });
   }
 
@@ -420,7 +451,7 @@ router.post('/mfa/setup', authMiddleware, asyncHandler(async (req: Authenticated
   if (!passwordHash || !(await bcrypt.compare(currentPassword, passwordHash))) {
     return res.status(400).json({
       success: false,
-      error: 'Current password is incorrect'
+      error: 'הסיסמה הנוכחית שגויה'
     });
   }
 
@@ -461,21 +492,21 @@ router.post('/mfa/enable', authMiddleware, asyncHandler(async (req: Authenticate
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
   if (!user.mfa_secret) {
     return res.status(400).json({
       success: false,
-      error: 'MFA setup has not been initialized'
+      error: 'תהליך הגדרת MFA עדיין לא אותחל'
     });
   }
 
   if (!verifyTotpCode(user.mfa_secret, String(code || ''))) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid MFA code'
+      error: 'קוד ה-MFA שגוי'
     });
   }
 
@@ -512,7 +543,7 @@ router.post('/mfa/disable', authMiddleware, asyncHandler(async (req: Authenticat
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -520,14 +551,14 @@ router.post('/mfa/disable', authMiddleware, asyncHandler(async (req: Authenticat
   if (!currentPassword || !passwordHash || !(await bcrypt.compare(currentPassword, passwordHash))) {
     return res.status(400).json({
       success: false,
-      error: 'Current password is incorrect'
+      error: 'הסיסמה הנוכחית שגויה'
     });
   }
 
   if (user.mfa_enabled && (!user.mfa_secret || !verifyTotpCode(user.mfa_secret, String(code || '')))) {
     return res.status(400).json({
       success: false,
-      error: 'Valid MFA code is required to disable MFA'
+      error: 'נדרש קוד MFA תקין כדי לכבות MFA'
     });
   }
 
@@ -565,7 +596,7 @@ router.get('/me', authMiddleware, asyncHandler(async (req: AuthenticatedRequest,
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -587,7 +618,7 @@ router.put('/profile', authMiddleware, asyncHandler(async (req: AuthenticatedReq
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -605,7 +636,7 @@ router.put('/profile', authMiddleware, asyncHandler(async (req: AuthenticatedReq
     if (!currentPassword) {
       return res.status(400).json({
         success: false,
-        error: 'Current password is required to change password'
+        error: 'חובה להזין את הסיסמה הנוכחית כדי לשנות סיסמה'
       });
     }
 
@@ -613,7 +644,7 @@ router.put('/profile', authMiddleware, asyncHandler(async (req: AuthenticatedReq
     if (!currentPasswordHash) {
       return res.status(400).json({
         success: false,
-        error: 'Current password is incorrect'
+        error: 'הסיסמה הנוכחית שגויה'
       });
     }
 
@@ -621,7 +652,7 @@ router.put('/profile', authMiddleware, asyncHandler(async (req: AuthenticatedReq
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
         success: false,
-        error: 'Current password is incorrect'
+        error: 'הסיסמה הנוכחית שגויה'
       });
     }
 
@@ -673,14 +704,14 @@ router.post('/bridge-token', authLimiter, asyncHandler(async (req: Request, res:
   if (!id || !email || !role) {
     return res.status(400).json({
       success: false,
-      error: 'ID, email, and role are required'
+      error: 'חובה לשלוח מזהה, אימייל ותפקיד'
     });
   }
 
   if (!sharedSecret || sharedSecret !== getBridgeSharedSecret()) {
     return res.status(403).json({
       success: false,
-      error: 'Bridge token access denied'
+      error: 'הגישה ליצירת Bridge token נדחתה'
     });
   }
 
@@ -691,14 +722,14 @@ router.post('/bridge-token', authLimiter, asyncHandler(async (req: Request, res:
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
   if (normalizeRole(user.role) !== normalizedRole) {
     return res.status(403).json({
       success: false,
-      error: 'Bridge token role mismatch'
+      error: 'התפקיד של Bridge token אינו תואם למשתמש'
     });
   }
 
@@ -739,7 +770,7 @@ router.post('/logout', authMiddleware, asyncHandler(async (req: AuthenticatedReq
   
   res.json({
     success: true,
-    message: 'Logged out successfully'
+    message: 'ההתנתקות בוצעה בהצלחה'
   });
 }));
 
