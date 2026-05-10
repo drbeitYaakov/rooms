@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
+const BACKEND_TOKEN_STORAGE_KEY = "rooms_backend_token";
+const BACKEND_TOKEN_USER_KEY_STORAGE_KEY = "rooms_backend_token_user_key";
 
 const getErrorMessage = (error: string | undefined, isMfaStep: boolean) => {
   if (!error) {
@@ -91,6 +93,11 @@ export default function LoginPage() {
         resolvedBackendToken = typeof loginPayload?.data?.token === "string" ? loginPayload.data.token : null;
         setValidatedUserJson(resolvedUserJson);
         setValidatedBackendToken(resolvedBackendToken);
+
+        if (resolvedBackendToken && typeof window !== "undefined") {
+          window.localStorage.setItem(BACKEND_TOKEN_STORAGE_KEY, resolvedBackendToken);
+          window.localStorage.setItem(BACKEND_TOKEN_USER_KEY_STORAGE_KEY, `${loginPayload?.data?.user?.id ?? ""}:${loginPayload?.data?.user?.email ?? ""}`);
+        }
       }
 
       const result = await signIn("credentials", {

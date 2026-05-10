@@ -18,6 +18,8 @@ type CachedBridgeToken = {
 };
 
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
+const BACKEND_TOKEN_STORAGE_KEY = 'rooms_backend_token';
+const BACKEND_TOKEN_USER_KEY_STORAGE_KEY = 'rooms_backend_token_user_key';
 
 let inMemoryToken: CachedBridgeToken | null = null;
 let tokenRequestPromise: Promise<string | null> | null = null;
@@ -61,6 +63,19 @@ const isTokenUsable = (cachedToken: CachedBridgeToken | null, userKey: string) =
 
 const persistToken = (cachedToken: CachedBridgeToken | null) => {
   inMemoryToken = cachedToken;
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!cachedToken) {
+    window.localStorage.removeItem(BACKEND_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(BACKEND_TOKEN_USER_KEY_STORAGE_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(BACKEND_TOKEN_STORAGE_KEY, cachedToken.token);
+  window.localStorage.setItem(BACKEND_TOKEN_USER_KEY_STORAGE_KEY, cachedToken.userKey);
 };
 
 const clearCachedToken = () => {
@@ -70,6 +85,28 @@ const clearCachedToken = () => {
 const getCachedToken = (userKey: string) => {
   if (isTokenUsable(inMemoryToken, userKey)) {
     return inMemoryToken;
+  }
+
+  if (typeof window !== 'undefined') {
+    const storedToken = window.localStorage.getItem(BACKEND_TOKEN_STORAGE_KEY);
+    const storedUserKey = window.localStorage.getItem(BACKEND_TOKEN_USER_KEY_STORAGE_KEY);
+
+    if (storedToken && storedUserKey === userKey) {
+      const expiresAt = parseJwtExpiry(storedToken) ?? Date.now() + (8 * 60 * 60 * 1000);
+      const storedCachedToken = {
+        token: storedToken,
+        expiresAt,
+        userKey
+      };
+
+      if (isTokenUsable(storedCachedToken, userKey)) {
+        persistToken(storedCachedToken);
+        return storedCachedToken;
+      }
+
+      window.localStorage.removeItem(BACKEND_TOKEN_STORAGE_KEY);
+      window.localStorage.removeItem(BACKEND_TOKEN_USER_KEY_STORAGE_KEY);
+    }
   }
 
   if (inMemoryToken) {
