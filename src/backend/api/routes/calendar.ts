@@ -63,20 +63,6 @@ function normalizeDateOnly(value: unknown): string | null {
   return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
 }
 
-function parseDateSafely(value: unknown): Date | null {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value as string);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function formatDateForLog(value: unknown): string {
-  const parsed = parseDateSafely(value);
-  return parsed ? parsed.toISOString() : 'invalid-date';
-}
-
 function getAssignmentPriorityForDisplay(assignment: any, targetDate: string): number {
   const specificDate = normalizeDateOnly(assignment.specific_date);
   const isHomeroomAssignment = assignment.assignable_type === 'homeroom';
@@ -181,7 +167,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
   console.log('📅 Room IDs:', rooms.map(r => ({ id: r.id, number: r.room_number })));
 
   // Get all assignments for the date range
-  console.log('📅 Querying assignments for date range:', formatDateForLog(startDate), 'to', formatDateForLog(endDate));
+  console.log('📅 Querying assignments for date range:', startDate.toISOString(), 'to', endDate.toISOString());
   
     
   // Get all active assignments and filter by both date and room in JavaScript
@@ -215,29 +201,20 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
     
     // Try specific_date first (for one-time assignments)
     if (assignment.specific_date) {
-      assignmentDate = parseDateSafely(assignment.specific_date);
+      assignmentDate = new Date(assignment.specific_date);
     } 
     // Then try start_date (for recurring/temporary)
     else if (assignment.start_date) {
-      assignmentDate = parseDateSafely(assignment.start_date);
+      assignmentDate = new Date(assignment.start_date);
     }
     // Finally try date field (if it exists)
     else if (assignment.date) {
-      assignmentDate = parseDateSafely(assignment.date);
+      assignmentDate = new Date(assignment.date);
     } else {
       console.log('❌ Assignment has no valid date field:', assignment.id);
       return false;
     }
     
-    if (!assignmentDate) {
-      console.log('❌ Assignment has malformed date value:', assignment.id, {
-        specific_date: assignment.specific_date ?? null,
-        start_date: assignment.start_date ?? null,
-        date: assignment.date ?? null
-      });
-      return false;
-    }
-
     const assignmentDateStr = assignmentDate.getFullYear() + '-' + 
       String(assignmentDate.getMonth() + 1).padStart(2, '0') + '-' + 
       String(assignmentDate.getDate()).padStart(2, '0');
@@ -255,17 +232,8 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
     
     if (assignment.type === 'temporary') {
       // For recurring assignments, check if the date range overlaps with calendar range
-      const assignmentStart = parseDateSafely(assignment.start_date || assignment.date);
-      const assignmentEnd = parseDateSafely(assignment.end_date || assignment.start_date || assignment.date);
-
-      if (!assignmentStart || !assignmentEnd) {
-        console.log('❌ Temporary assignment has malformed date range:', assignment.id, {
-          start_date: assignment.start_date ?? null,
-          end_date: assignment.end_date ?? null,
-          date: assignment.date ?? null
-        });
-        return false;
-      }
+      const assignmentStart = new Date(assignment.start_date || assignment.date);
+      const assignmentEnd = new Date(assignment.end_date || assignment.start_date || assignment.date);
       
       dateInRange = assignmentEnd >= startDate && assignmentStart <= endDate;
     } else {
@@ -374,7 +342,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
     // Get the display date
     let displayDate = assignment.specific_date || assignment.start_date || assignment.date || 'N/A';
     if (displayDate !== 'N/A') {
-      displayDate = normalizeDateOnly(displayDate) || 'invalid-date';
+      displayDate = new Date(displayDate).toISOString().split('T')[0];
     }
   });
 
@@ -394,25 +362,16 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
       // One-time assignment - use specific_date
       let assignmentDate;
       if (assignment.specific_date) {
-        assignmentDate = parseDateSafely(assignment.specific_date);
+        assignmentDate = new Date(assignment.specific_date);
       } else if (assignment.start_date) {
-        assignmentDate = parseDateSafely(assignment.start_date);
+        assignmentDate = new Date(assignment.start_date);
       } else if (assignment.date) {
-        assignmentDate = parseDateSafely(assignment.date);
+        assignmentDate = new Date(assignment.date);
       } else {
         console.log('❌ Assignment has no valid date for grouping:', assignment.id);
         return;
       }
       
-      if (!assignmentDate) {
-        console.log('❌ Assignment has malformed grouping date:', assignment.id, {
-          specific_date: assignment.specific_date ?? null,
-          start_date: assignment.start_date ?? null,
-          date: assignment.date ?? null
-        });
-        return;
-      }
-
       const date = assignmentDate.getFullYear() + '-' + 
         String(assignmentDate.getMonth() + 1).padStart(2, '0') + '-' + 
         String(assignmentDate.getDate()).padStart(2, '0');
@@ -430,16 +389,8 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
     } else if (assignment.type === 'temporary') {
       console.log(`🔍 DEBUG: Assignment ${assignment.id} is temporary (recurring), type=${assignment.type}`);
       // Recurring assignment - calculate all dates in range
-      const startDate = parseDateSafely(assignment.start_date);
-      const endDate = assignment.end_date ? parseDateSafely(assignment.end_date) : parseDateSafely('2026-12-31');
-
-      if (!startDate || !endDate) {
-        console.log('❌ Recurring assignment has malformed start/end date:', assignment.id, {
-          start_date: assignment.start_date ?? null,
-          end_date: assignment.end_date ?? null
-        });
-        return;
-      }
+      const startDate = new Date(assignment.start_date);
+      const endDate = assignment.end_date ? new Date(assignment.end_date) : new Date('2026-12-31');
       
       // Parse days_of_week
       let daysOfWeek = [];
@@ -453,7 +404,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
         return;
       }
       
-      console.log(`🗂️ Processing recurring assignment: Room ${roomId}, Days ${daysOfWeek}, ${normalizeDateOnly(startDate) ?? 'invalid-date'} to ${normalizeDateOnly(endDate) ?? 'invalid-date'}`);
+      console.log(`🗂️ Processing recurring assignment: Room ${roomId}, Days ${daysOfWeek}, ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
       
       // Generate all dates for this recurring assignment
       const currentDate = new Date(startDate);
@@ -628,7 +579,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
           console.log(`✅ Room ${room.room_number} ${date} ${timeSlot}: OCCUPIED by ${specificAssignment.activity_type}`);
         } else {
           // Check if this is a homeroom and should have default occupancy
-          const isHomeroom = typeof room.room_type === 'string' && room.room_type.startsWith('CLASSROOM_');
+          const isHomeroom = room.room_type.startsWith('CLASSROOM_');
           const slotTimeInMinutes = slotHour * 60 + slotMinute;
           const homeroom = homeroomByRoomId.get(String(room.id));
           const resolvedDefault = homeroom
@@ -664,9 +615,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
               id: 'default-homeroom',
               study_group_name: 'כיתת אם',
               activity_type: 'לימודים',
-               grade: typeof room.room_type === 'string'
-                 ? room.room_type.replace('CLASSROOM_', '').toUpperCase()
-                 : '',
+              grade: room.room_type.replace('CLASSROOM_', '').toUpperCase(),
               start_time: resolvedDefault.start_time,
               end_time: resolvedDefault.end_time,
               student_count: 0,
@@ -757,7 +706,7 @@ router.get('/availability/:date', authMiddleware, asyncHandler(async (req: Authe
   if (!date || !Date.parse(date)) {
     return res.status(400).json({
       success: false,
-      error: 'פורמט התאריך אינו תקין. יש להשתמש ב-YYYY-MM-DD.'
+      error: 'Invalid date format. Use YYYY-MM-DD format.'
     });
   }
 
@@ -805,7 +754,7 @@ router.get('/availability/:date', authMiddleware, asyncHandler(async (req: Authe
     let totalOccupiedHours = 0;
     
     // Add default homeroom occupancy if applicable
-    const isHomeroom = typeof room.room_type === 'string' && room.room_type.startsWith('CLASSROOM_');
+    const isHomeroom = room.room_type.startsWith('CLASSROOM_');
     if (isHomeroom) {
       const homeroom = homeroomByRoomId.get(String(room.id));
       const resolvedDefault = homeroom
