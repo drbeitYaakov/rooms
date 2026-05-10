@@ -43,6 +43,7 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [validatedUserJson, setValidatedUserJson] = useState<string | null>(null);
+  const [validatedBackendToken, setValidatedBackendToken] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const isMfaStep = Boolean(mfaToken);
@@ -57,6 +58,7 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMessage("");
     let resolvedUserJson = validatedUserJson;
+    let resolvedBackendToken = validatedBackendToken;
 
     try {
       if (!isMfaStep) {
@@ -81,17 +83,21 @@ export default function LoginPage() {
         if (loginPayload?.data?.mfaRequired && loginPayload?.data?.mfaToken) {
           setMfaToken(loginPayload.data.mfaToken);
           setValidatedUserJson(null);
+          setValidatedBackendToken(null);
           return;
         }
 
         resolvedUserJson = JSON.stringify(loginPayload?.data?.user ?? null);
+        resolvedBackendToken = typeof loginPayload?.data?.token === "string" ? loginPayload.data.token : null;
         setValidatedUserJson(resolvedUserJson);
+        setValidatedBackendToken(resolvedBackendToken);
       }
 
       const result = await signIn("credentials", {
         email,
         password,
         userJson: resolvedUserJson || undefined,
+        backendToken: resolvedBackendToken || undefined,
         mfaCode: mfaCode || undefined,
         mfaToken: mfaToken || undefined,
         redirect: false,
@@ -187,6 +193,7 @@ export default function LoginPage() {
                 setMfaToken(null);
                 setMfaCode("");
                 setValidatedUserJson(null);
+                setValidatedBackendToken(null);
                 setErrorMessage("");
               }}
               disabled={isLoading}

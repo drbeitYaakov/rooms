@@ -4,6 +4,7 @@ type SessionUser = {
   id?: string;
   email?: string;
   role?: string;
+  backendToken?: string;
 };
 
 type SessionPayload = {
@@ -97,6 +98,7 @@ export const createBackendToken = async (session: SessionPayload, forceRefresh =
   }
 
   const userKey = buildUserKey(session);
+  const sessionBackendToken = session.user?.backendToken;
 
   if (!forceRefresh) {
     const cachedToken = getCachedToken(userKey);
@@ -105,6 +107,16 @@ export const createBackendToken = async (session: SessionPayload, forceRefresh =
     }
   } else {
     clearCachedToken();
+  }
+
+  if (sessionBackendToken) {
+    const expiresAt = parseJwtExpiry(sessionBackendToken) ?? Date.now() + (8 * 60 * 60 * 1000);
+    persistToken({
+      token: sessionBackendToken,
+      expiresAt,
+      userKey
+    });
+    return sessionBackendToken;
   }
 
   if (tokenRequestPromise) {

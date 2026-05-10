@@ -16,6 +16,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         userJson: { label: "User JSON", type: "text" },
+        backendToken: { label: "Backend Token", type: "text" },
         mfaCode: { label: "MFA Code", type: "text" },
         mfaToken: { label: "MFA Token", type: "text" }
       },
@@ -38,7 +39,8 @@ export const authOptions: NextAuthOptions = {
               email: user.email,
               name: user.name,
               role: user.role,
-              mfaEnabled: Boolean(user.mfaEnabled)
+              mfaEnabled: Boolean(user.mfaEnabled),
+              backendToken: credentials.backendToken
             };
           }
 
@@ -85,7 +87,8 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name,
             role: user.role,
-            mfaEnabled: Boolean(user.mfaEnabled)
+            mfaEnabled: Boolean(user.mfaEnabled),
+            backendToken: payload?.data?.token
           };
         } catch (error) {
           console.error("NextAuth authorize error:", error);
@@ -108,6 +111,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.mfaEnabled = user.mfaEnabled;
+        token.backendToken = user.backendToken;
       }
       return token;
     },
@@ -116,6 +120,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub!;
         session.user.role = token.role;
         session.user.mfaEnabled = Boolean(token.mfaEnabled);
+        session.user.backendToken = typeof token.backendToken === "string" ? token.backendToken : undefined;
       }
       return session;
     }

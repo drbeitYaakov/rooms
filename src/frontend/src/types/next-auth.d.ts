@@ -8,12 +8,14 @@ declare module "next-auth" {
       email: string;
       role: string;
       mfaEnabled?: boolean;
+      backendToken?: string;
     };
   }
 
   interface User {
     role: string;
     mfaEnabled?: boolean;
+    backendToken?: string;
   }
 }
 
@@ -21,5 +23,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     role: string;
     mfaEnabled?: boolean;
+    backendToken?: string;
   }
 }
