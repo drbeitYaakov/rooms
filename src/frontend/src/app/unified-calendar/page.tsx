@@ -69,6 +69,8 @@ interface SelectedCellState {
 
 type ViewMode = "week" | "day";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
+
 const CALENDAR_START_HOUR = 8;
 const CALENDAR_END_HOUR = 22;
 const TOTAL_MINUTES = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60;
@@ -243,7 +245,7 @@ export default function UnifiedCalendarPage() {
       const endDate = addDays(startDate, 30);
 
       const response = await authenticatedFetch(
-        "/api/calendar/grid?" +
+        `${API_BASE_URL}/api/calendar/grid?` +
           new URLSearchParams({
             start_date: formatLocalDate(startDate),
             end_date: formatLocalDate(endDate),
@@ -251,13 +253,13 @@ export default function UnifiedCalendarPage() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch calendar data");
+        throw new Error("טעינת נתוני היומן נכשלה");
       }
 
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error("Failed to fetch calendar data");
+        throw new Error("טעינת נתוני היומן נכשלה");
       }
 
       setRooms(data.data.rooms);
@@ -410,10 +412,10 @@ export default function UnifiedCalendarPage() {
       setActionError(null);
 
       const response = isDefaultHomeroomAssignment(assignment)
-        ? await authenticatedFetch(`/api/assignments/homeroom-default?room_id=${roomId}&target_date=${date}`, {
+        ? await authenticatedFetch(`${API_BASE_URL}/api/assignments/homeroom-default?room_id=${roomId}&target_date=${date}`, {
             method: "DELETE",
           })
-        : await authenticatedFetch(`/api/assignments/${assignment.id}?target_date=${date}`, {
+        : await authenticatedFetch(`${API_BASE_URL}/api/assignments/${assignment.id}?target_date=${date}`, {
             method: "DELETE",
           });
 
@@ -444,7 +446,7 @@ export default function UnifiedCalendarPage() {
       setActionError(null);
 
       const response = isDefaultHomeroomAssignment(editingAssignment.assignment)
-        ? await authenticatedFetch("/api/assignments/homeroom-default", {
+        ? await authenticatedFetch(`${API_BASE_URL}/api/assignments/homeroom-default`, {
             method: "POST",
             body: JSON.stringify({
               room_id: editingAssignment.roomId,
@@ -453,7 +455,7 @@ export default function UnifiedCalendarPage() {
               end_time: editingAssignment.endTime,
             }),
           })
-        : await authenticatedFetch(`/api/assignments/${editingAssignment.assignment.id}`, {
+        : await authenticatedFetch(`${API_BASE_URL}/api/assignments/${editingAssignment.assignment.id}`, {
             method: "PUT",
             body: JSON.stringify({
               target_date: editingAssignment.date,
