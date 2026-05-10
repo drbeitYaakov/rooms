@@ -21,6 +21,8 @@ interface Conflict {
   assignments?: Assignment[];
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
+
 export default function OverrideRulesPage() {
   const router = useRouter();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -36,7 +38,7 @@ export default function OverrideRulesPage() {
 
   const fetchAssignments = async () => {
     try {
-      const response = await authenticatedFetch('/api/assignments');
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/assignments`);
       if (response.ok) {
         const data = await response.json();
         setAssignments(data.data.assignments);
@@ -48,7 +50,7 @@ export default function OverrideRulesPage() {
 
   const fetchConflicts = async () => {
     try {
-      const response = await authenticatedFetch('/api/assignments/conflicts');
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/assignments/conflicts`);
       if (response.ok) {
         const data = await response.json();
         setConflicts(data.data.conflicts || []);
@@ -66,7 +68,7 @@ export default function OverrideRulesPage() {
 
     setLoading(true);
     try {
-      const response = await authenticatedFetch('/api/assignments/override', {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/assignments/override`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +96,7 @@ export default function OverrideRulesPage() {
 
   const handleResolveConflict = async (conflictId: string, resolution: string) => {
     try {
-      const response = await authenticatedFetch('/api/assignments/resolve-conflict', {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/assignments/resolve-conflict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

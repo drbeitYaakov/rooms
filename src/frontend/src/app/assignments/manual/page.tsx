@@ -31,6 +31,10 @@ interface AssignmentListItem {
 }
 
 const DEFAULT_ACTIVITY_TYPE = "";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
+
+const hasInvalidTimeRange = (startTime: string, endTime: string) =>
+  Boolean(startTime && endTime && startTime >= endTime);
 
 export default function ManualAssignmentPage() {
   const router = useRouter();
@@ -70,10 +74,11 @@ export default function ManualAssignmentPage() {
   const activityOptions = isSelectedRoomAuditorium
     ? MANUAL_AUDITORIUM_ACTIVITY_OPTIONS
     : RECURRING_ROOM_REQUEST_ACTIVITY_OPTIONS;
+  const invalidTimeRange = hasInvalidTimeRange(formData.start_time, formData.end_time);
 
   const fetchRooms = async () => {
     try {
-      const response = await authenticatedFetch("/api/rooms");
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/rooms`);
       if (!response.ok) {
         return;
       }
@@ -87,7 +92,7 @@ export default function ManualAssignmentPage() {
 
   const fetchAssignments = async () => {
     try {
-      const response = await authenticatedFetch("/api/assignments");
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/assignments`);
       if (!response.ok) {
         return;
       }
@@ -142,6 +147,12 @@ export default function ManualAssignmentPage() {
       return;
     }
 
+    if (invalidTimeRange) {
+      alert("שעת ההתחלה חייבת להיות מוקדמת משעת הסיום");
+      setLoading(false);
+      return;
+    }
+
     if (formData.assignment_type === "recurring") {
       if (formData.days_of_week.length === 0) {
         alert("אנא בחר לפחות יום אחד בשבוע");
@@ -157,7 +168,7 @@ export default function ManualAssignmentPage() {
     }
 
     try {
-      const response = await authenticatedFetch("/api/assignments", {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/assignments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -276,6 +287,9 @@ export default function ManualAssignmentPage() {
                     />
                   </div>
                 </div>
+                {invalidTimeRange && (
+                  <p className="text-sm text-red-600">שעת ההתחלה חייבת להיות מוקדמת משעת הסיום</p>
+                )}
 
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">סוג תדירות</label>
