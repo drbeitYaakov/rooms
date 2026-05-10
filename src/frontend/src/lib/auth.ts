@@ -39,12 +39,19 @@ export const authOptions: NextAuthOptions = {
           }
 
           const payload = await response.json();
+          console.error("NextAuth authorize payload:", payload);
           if (payload?.data?.mfaRequired) {
+            console.error("NextAuth authorize detected MFA requirement");
             return null;
           }
           const user = payload?.data?.user;
+          console.error("NextAuth authorize extracted user:", user);
 
           if (!user?.id || !user?.email) {
+            console.error("NextAuth authorize missing required user fields", {
+              hasId: Boolean(user?.id),
+              hasEmail: Boolean(user?.email)
+            });
             return null;
           }
 
