@@ -55,7 +55,7 @@ router.get('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequest
   if (!room) {
     return res.status(404).json({
       success: false,
-      error: 'Room not found'
+      error: 'החדר לא נמצא'
     });
   }
 
@@ -88,7 +88,7 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   if (!roomNumber || !roomType || capacity === undefined) {
     return res.status(400).json({
       success: false,
-      error: 'Room number, room type, and capacity are required'
+      error: 'חובה למלא מספר חדר, סוג חדר ותכולה'
     });
   }
 
@@ -101,7 +101,7 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   } catch (error) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid room number format. Room number should start with a digit (1-4) for floor determination.'
+      error: 'פורמט מספר החדר אינו תקין. מספר החדר צריך להתחיל בספרה 1-4 לצורך קביעת הקומה.'
     });
   }
 
@@ -131,7 +131,7 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   if (existingRoom) {
     return res.status(400).json({
       success: false,
-      error: 'Room with this number already exists'
+      error: 'כבר קיים חדר עם המספר הזה'
     });
   }
 
@@ -224,7 +224,7 @@ router.put('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response)
   if (!existingRoom) {
     return res.status(404).json({
       success: false,
-      error: 'Room not found'
+      error: 'החדר לא נמצא'
     });
   }
 
@@ -260,7 +260,7 @@ router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Respon
   if (!existingRoom) {
     return res.status(404).json({
       success: false,
-      error: 'Room not found'
+      error: 'החדר לא נמצא'
     });
   }
 
@@ -274,7 +274,7 @@ router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Respon
 
   res.json({
     success: true,
-    message: 'Room deleted successfully'
+    message: 'החדר נמחק בהצלחה'
   });
 }));
 
@@ -288,7 +288,7 @@ router.get('/:id/availability', authMiddleware, asyncHandler(async (req: Authent
   if (!room) {
     return res.status(404).json({
       success: false,
-      error: 'Room not found'
+      error: 'החדר לא נמצא'
     });
   }
 
@@ -324,7 +324,7 @@ router.get('/:id/stats', authMiddleware, asyncHandler(async (req: AuthenticatedR
   if (!room) {
     return res.status(404).json({
       success: false,
-      error: 'Room not found'
+      error: 'החדר לא נמצא'
     });
   }
 

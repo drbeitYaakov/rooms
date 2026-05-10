@@ -760,14 +760,14 @@ router.post('/groups', authMiddleware, asyncHandler(async (req: AuthenticatedReq
   ) {
     return res.status(400).json({
       success: false,
-      error: 'activity_type, student_count, start_date, end_date and weekly_schedule are required'
+      error: 'חובה למלא activity_type, student_count, start_date, end_date ו-weekly_schedule'
     });
   }
 
   if (effectiveStartDate > effectiveEndDate) {
     return res.status(400).json({
       success: false,
-      error: 'start_date must be earlier than or equal to end_date'
+      error: 'תאריך ההתחלה חייב להיות מוקדם או שווה לתאריך הסיום'
     });
   }
 
@@ -1426,14 +1426,14 @@ router.put('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequest
   if (!existingRequest) {
     return res.status(404).json({
       success: false,
-      error: 'Room request not found'
+      error: 'בקשת החדר לא נמצאה'
     });
   }
 
   if (req.user!.role !== 'admin') {
     return res.status(403).json({
       success: false,
-      error: 'Access denied'
+      error: 'הגישה נדחתה'
     });
   }
 
@@ -1464,14 +1464,14 @@ router.delete('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequ
   if (!existingRequest) {
     return res.status(404).json({
       success: false,
-      error: 'Room request not found'
+      error: 'בקשת החדר לא נמצאה'
     });
   }
 
   if (req.user!.role !== 'admin' && existingRequest.requester_id !== actorId) {
     return res.status(403).json({
       success: false,
-      error: 'Access denied'
+      error: 'הגישה נדחתה'
     });
   }
 
@@ -1479,7 +1479,7 @@ router.delete('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequ
 
   res.json({
     success: true,
-    message: 'Room request deleted successfully'
+    message: 'בקשת החדר נמחקה בהצלחה'
   });
 }));
 

@@ -59,7 +59,7 @@ router.get('/', authMiddleware, requireAdmin, async (req: AuthenticatedRequest, 
     logger.error('Error fetching room priority settings:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch room priority settings'
+      error: 'טעינת הגדרות עדיפות החדרים נכשלה'
     });
   }
 });
@@ -137,13 +137,13 @@ router.put('/', authMiddleware, requireAdmin, async (req: AuthenticatedRequest, 
 
     res.json({
       success: true,
-      message: 'Room priority settings saved successfully'
+      message: 'הגדרות עדיפות החדרים נשמרו בהצלחה'
     });
   } catch (error) {
     logger.error('Error saving room priority settings:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to save room priority settings'
+      error: 'שמירת הגדרות עדיפות החדרים נכשלה'
     });
   }
 });

@@ -31,7 +31,7 @@ router.get('/', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, r
     res.json(formattedGrades);
   } catch (error) {
     console.error('Error fetching grades:', error);
-    res.status(500).json({ error: 'Failed to fetch grades' });
+    res.status(500).json({ error: 'טעינת השכבות נכשלה' });
   }
 }));
 
@@ -44,7 +44,7 @@ router.get('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequest
     .first();
   
   if (!grade) {
-    return res.status(404).json({ error: 'Grade not found' });
+    return res.status(404).json({ error: 'השכבה לא נמצאה' });
   }
   
   res.json(grade);
@@ -56,7 +56,7 @@ router.post('/', authMiddleware, requireCoordinator, asyncHandler(async (req: Au
   const activeYear = await getActiveAcademicYear(db);
 
   if (!activeYear) {
-    return res.status(400).json({ error: 'No active academic year found' });
+    return res.status(400).json({ error: 'לא נמצאה שנת לימוד פעילה' });
   }
   
   const [grade] = await db('grades')
@@ -99,7 +99,7 @@ router.put('/:id', authMiddleware, requireCoordinator, asyncHandler(async (req: 
     .returning('*');
   
   if (!grade) {
-    return res.status(404).json({ error: 'Grade not found' });
+    return res.status(404).json({ error: 'השכבה לא נמצאה' });
   }
   
   await recordAuditEvent({
@@ -123,7 +123,7 @@ router.delete('/:id', authMiddleware, requireCoordinator, asyncHandler(async (re
     .del();
   
   if (!deleted) {
-    return res.status(404).json({ error: 'Grade not found' });
+    return res.status(404).json({ error: 'השכבה לא נמצאה' });
   }
   
   await recordAuditEvent({

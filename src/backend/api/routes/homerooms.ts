@@ -211,12 +211,12 @@ function validateSpecialScheduleIsReduction(
     const baseSlot = baseSchedule.find((item) => item.day_of_week === slot.day_of_week);
 
     if (!baseSlot) {
-      return 'Missing base schedule for one of the weekdays';
+      return 'חסר לוח זמנים בסיסי עבור אחד מימי השבוע';
     }
 
     if (!baseSlot.is_active) {
       if (slot.is_active) {
-        return `Cannot activate weekday ${slot.day_of_week} when it is inactive in the base schedule`;
+        return `לא ניתן להפעיל את יום השבוע ${slot.day_of_week} כאשר הוא לא פעיל בלוח הזמנים הבסיסי`;
       }
       continue;
     }
@@ -226,19 +226,19 @@ function validateSpecialScheduleIsReduction(
     }
 
     if (!slot.start_time || !slot.end_time || !baseSlot.start_time || !baseSlot.end_time) {
-      return `Invalid time range for weekday ${slot.day_of_week}`;
+      return `טווח השעות אינו תקין עבור יום מספר ${slot.day_of_week}`;
     }
 
     if (slot.start_time < baseSlot.start_time) {
-      return `Special schedule can only start later than the base schedule on weekday ${slot.day_of_week}`;
+      return `לוח זמנים מיוחד יכול להתחיל רק מאוחר יותר מלוח הזמנים הבסיסי ביום ${slot.day_of_week}`;
     }
 
     if (slot.end_time > baseSlot.end_time) {
-      return `Special schedule can only end earlier than the base schedule on weekday ${slot.day_of_week}`;
+      return `לוח זמנים מיוחד יכול להסתיים רק מוקדם יותר מלוח הזמנים הבסיסי ביום ${slot.day_of_week}`;
     }
 
     if (slot.start_time >= slot.end_time) {
-      return `Start time must be before end time on weekday ${slot.day_of_week}`;
+      return `שעת ההתחלה חייבת להיות לפני שעת הסיום ביום ${slot.day_of_week}`;
     }
   }
 
@@ -382,7 +382,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
     logger.error('Error fetching homerooms:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch homerooms'
+      error: 'טעינת כיתות האם נכשלה'
     });
   }
 });
@@ -394,7 +394,7 @@ router.get('/available-rooms', authMiddleware, async (req: AuthenticatedRequest,
     if (!grade_id || !school_year) {
       return res.status(400).json({
         success: false,
-        error: 'grade_id and school_year are required'
+        error: 'חובה לשלוח grade_id ו-school_year'
       });
     }
 
@@ -404,7 +404,7 @@ router.get('/available-rooms', authMiddleware, async (req: AuthenticatedRequest,
     if (!grade) {
       return res.status(404).json({
         success: false,
-        error: 'Grade not found'
+        error: 'השכבה לא נמצאה'
       });
     }
 
@@ -450,7 +450,7 @@ router.get('/available-rooms', authMiddleware, async (req: AuthenticatedRequest,
     logger.error('Error fetching available rooms:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch available rooms'
+      error: 'טעינת החדרים הזמינים נכשלה'
     });
   }
 });
@@ -476,7 +476,7 @@ router.get('/grades', authMiddleware, async (req: AuthenticatedRequest, res: Res
     logger.error('Error fetching grades:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch grades'
+      error: 'טעינת השכבות נכשלה'
     });
   }
 });
@@ -553,7 +553,7 @@ router.get('/default-settings', authMiddleware, async (req: AuthenticatedRequest
     logger.error('Error fetching homeroom default settings:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch homeroom default settings'
+      error: 'טעינת הגדרות ברירת המחדל של כיתות האם נכשלה'
     });
   }
 });
@@ -565,7 +565,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
     if (swaps.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'At least one room swap is required'
+        error: 'חובה לשלוח לפחות החלפת חדר אחת'
       });
     }
 
@@ -579,7 +579,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
     if (normalizedSwaps.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid swap payload'
+        error: 'נתוני ההחלפה אינם תקינים'
       });
     }
 
@@ -587,7 +587,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
     if (new Set(targetRoomIds).size !== targetRoomIds.length) {
       return res.status(400).json({
         success: false,
-        error: 'Each target room can be assigned to only one homeroom'
+        error: 'כל חדר יעד יכול להיות משויך לכיתת אם אחת בלבד'
       });
     }
 
@@ -602,7 +602,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
         .andWhere({ is_active: true });
 
       if (homerooms.length !== homeroomIds.length) {
-        throw new Error('One or more homerooms were not found');
+        throw new Error('אחת או יותר מכיתות האם לא נמצאו');
       }
 
       const rooms = await trx('rooms')
@@ -611,7 +611,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
         .andWhere({ is_active: true });
 
       if (rooms.length !== targetRoomIds.length) {
-        throw new Error('One or more target rooms were not found');
+        throw new Error('אחד או יותר מחדרי היעד לא נמצאו');
       }
 
       const schoolYears = [...new Set(homerooms.map((homeroom: any) => homeroom.school_year))];
@@ -623,7 +623,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
         .andWhere({ is_active: true });
 
       if (conflictingAssignments.length > 0) {
-        throw new Error('One or more target rooms are already assigned to another homeroom');
+        throw new Error('אחד או יותר מחדרי היעד כבר משויכים לכיתת אם אחרת');
       }
 
       const affectedAssignments = await trx('assignments')
@@ -709,7 +709,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
 
     res.json({
       success: true,
-      message: 'Homeroom rooms swapped successfully'
+      message: 'החלפת החדרים של כיתות האם הושלמה בהצלחה'
     });
   } catch (error) {
     logger.error('Error swapping homeroom rooms:', error);
@@ -729,7 +729,7 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
 
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to swap homeroom rooms'
+      error: error instanceof Error ? error.message : 'החלפת החדרים של כיתות האם נכשלה'
     });
   }
 });
@@ -744,7 +744,7 @@ router.put('/default-settings/grade', authMiddleware, async (req: AuthenticatedR
     if (!grade_id || !normalizedDate || !normalizedWeeklySchedule) {
       return res.status(400).json({
         success: false,
-        error: 'grade_id, effective_from and weekly_schedule are required'
+        error: 'חובה לשלוח grade_id, effective_from ו-weekly_schedule'
       });
     }
 
@@ -752,7 +752,7 @@ router.put('/default-settings/grade', authMiddleware, async (req: AuthenticatedR
     if (!grade) {
       return res.status(404).json({
         success: false,
-        error: 'Grade not found'
+        error: 'השכבה לא נמצאה'
       });
     }
 
@@ -775,13 +775,13 @@ router.put('/default-settings/grade', authMiddleware, async (req: AuthenticatedR
 
     res.json({
       success: true,
-      message: 'Grade default setting saved successfully'
+      message: 'הגדרת ברירת המחדל של השכבה נשמרה בהצלחה'
     });
   } catch (error) {
     logger.error('Error saving grade default setting:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to save grade default setting'
+      error: 'שמירת הגדרת ברירת המחדל של השכבה נכשלה'
     });
   }
 });
@@ -797,14 +797,14 @@ router.put('/default-settings/homeroom', authMiddleware, async (req: Authenticat
     if (!homeroom_id || !normalizedDate || !normalizedWeeklySchedule) {
       return res.status(400).json({
         success: false,
-        error: 'homeroom_id, effective_from and weekly_schedule are required'
+        error: 'חובה לשלוח homeroom_id, effective_from ו-weekly_schedule'
       });
     }
 
     if (!Number.isInteger(homeroomId) || homeroomId <= 0) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid homeroom_id'
+        error: 'מזהה כיתת האם אינו תקין'
       });
     }
 
@@ -816,7 +816,7 @@ router.put('/default-settings/homeroom', authMiddleware, async (req: Authenticat
     if (!homeroom) {
       return res.status(404).json({
         success: false,
-        error: 'Homeroom not found'
+        error: 'כיתת האם לא נמצאה'
       });
     }
 
@@ -834,13 +834,13 @@ router.put('/default-settings/homeroom', authMiddleware, async (req: Authenticat
 
     res.json({
       success: true,
-      message: 'Homeroom override saved successfully'
+      message: 'הדריסה של כיתת האם נשמרה בהצלחה'
     });
   } catch (error) {
     logger.error('Error saving homeroom override setting:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to save homeroom override setting'
+      error: 'שמירת הגדרת הדריסה של כיתת האם נכשלה'
     });
   }
 });
@@ -867,14 +867,14 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
     if (!normalizedTargetType || !normalizedStartDate || !normalizedEndDate || !normalizedWeeklySchedule) {
       return res.status(400).json({
         success: false,
-        error: 'target_type, start_date, end_date and weekly_schedule are required'
+        error: 'חובה לשלוח target_type, start_date, end_date ו-weekly_schedule'
       });
     }
 
     if (normalizedStartDate > normalizedEndDate) {
       return res.status(400).json({
         success: false,
-        error: 'start_date must be before or equal to end_date'
+        error: 'תאריך ההתחלה חייב להיות מוקדם או שווה לתאריך הסיום'
       });
     }
 
@@ -882,7 +882,7 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
       if (!grade_id) {
         return res.status(400).json({
           success: false,
-          error: 'grade_id is required for grade special schedules'
+          error: 'חובה לשלוח grade_id עבור לוחות זמנים מיוחדים של שכבה'
         });
       }
 
@@ -890,7 +890,7 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
       if (!grade) {
         return res.status(404).json({
           success: false,
-          error: 'Grade not found'
+          error: 'השכבה לא נמצאה'
         });
       }
     }
@@ -899,7 +899,7 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
       if (!Number.isInteger(homeroomId) || (homeroomId ?? 0) <= 0) {
         return res.status(400).json({
           success: false,
-          error: 'Valid homeroom_id is required for homeroom special schedules'
+          error: 'נדרש homeroom_id תקין עבור לוחות זמנים מיוחדים של כיתת אם'
         });
       }
 
@@ -911,7 +911,7 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
       if (!homeroom) {
         return res.status(404).json({
           success: false,
-          error: 'Homeroom not found'
+          error: 'כיתת האם לא נמצאה'
         });
       }
     }
@@ -991,7 +991,7 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
 
     res.status(201).json({
       success: true,
-      message: 'Special schedule saved successfully'
+      message: 'לוח הזמנים המיוחד נשמר בהצלחה'
     });
   } catch (error) {
     logger.error('Error saving special schedule:', error);
@@ -1001,7 +1001,12 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
       error.message.includes('Cannot activate weekday') ||
       error.message.includes('Invalid time range') ||
       error.message.includes('Missing base schedule') ||
-      error.message.includes('Start time must be before end time')
+      error.message.includes('Start time must be before end time') ||
+      error.message.includes('לוח זמנים מיוחד יכול') ||
+      error.message.includes('לא ניתן להפעיל את יום השבוע') ||
+      error.message.includes('טווח שעות לא תקין') ||
+      error.message.includes('חסר לוח זמנים בסיסי') ||
+      error.message.includes('שעת ההתחלה חייבת להיות לפני שעת הסיום')
     )) {
       return res.status(400).json({
         success: false,
@@ -1011,7 +1016,7 @@ router.post('/special-schedules', authMiddleware, async (req: AuthenticatedReque
 
     res.status(500).json({
       success: false,
-      error: 'Failed to save special schedule'
+      error: 'שמירת לוח הזמנים המיוחד נכשלה'
     });
   }
 });
@@ -1026,7 +1031,7 @@ router.get('/special-schedules/current-state', authMiddleware, async (req: Authe
     if (!targetType || !targetDate) {
       return res.status(400).json({
         success: false,
-        error: 'target_type and date are required'
+        error: 'חובה לשלוח target_type ו-date'
       });
     }
 
@@ -1036,7 +1041,7 @@ router.get('/special-schedules/current-state', authMiddleware, async (req: Authe
       if (!Number.isInteger(homeroomId) || (homeroomId ?? 0) <= 0) {
         return res.status(400).json({
           success: false,
-          error: 'Valid homeroom_id is required'
+          error: 'נדרש homeroom_id תקין'
         });
       }
 
@@ -1050,7 +1055,7 @@ router.get('/special-schedules/current-state', authMiddleware, async (req: Authe
       if (!homeroom) {
         return res.status(404).json({
           success: false,
-          error: 'Homeroom not found'
+          error: 'כיתת האם לא נמצאה'
         });
       }
 
@@ -1115,7 +1120,7 @@ router.get('/special-schedules/current-state', authMiddleware, async (req: Authe
     if (!gradeId) {
       return res.status(400).json({
         success: false,
-        error: 'grade_id is required'
+        error: 'יש לבחור שכבה'
       });
     }
 
@@ -1151,7 +1156,7 @@ router.get('/special-schedules/current-state', authMiddleware, async (req: Authe
     logger.error('Error fetching current special schedule state:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch current state'
+      error: 'טעינת המצב הנוכחי נכשלה'
     });
   }
 });
@@ -1164,7 +1169,7 @@ router.delete('/special-schedules/:id', authMiddleware, async (req: Authenticate
     if (!id) {
       return res.status(400).json({
         success: false,
-        error: 'Schedule id is required'
+        error: 'חובה לשלוח מזהה לוח זמנים'
       });
     }
 
@@ -1188,7 +1193,7 @@ router.delete('/special-schedules/:id', authMiddleware, async (req: Authenticate
 
     res.json({
       success: true,
-      message: 'Special schedule deleted successfully'
+      message: 'לוח הזמנים המיוחד נמחק בהצלחה'
     });
   } catch (error) {
     logger.error('Error deleting special schedule:', error);
@@ -1196,13 +1201,13 @@ router.delete('/special-schedules/:id', authMiddleware, async (req: Authenticate
     if (error instanceof Error && error.message === 'NOT_FOUND') {
       return res.status(404).json({
         success: false,
-        error: 'Special schedule not found'
+        error: 'לוח הזמנים המיוחד לא נמצא'
       });
     }
 
     res.status(500).json({
       success: false,
-      error: 'Failed to delete special schedule'
+      error: 'מחיקת לוח הזמנים המיוחד נכשלה'
     });
   }
 });
@@ -1294,7 +1299,7 @@ router.get('/history', authMiddleware, async (req: AuthenticatedRequest, res: Re
     logger.error('Error fetching homeroom history:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch homeroom history'
+      error: 'טעינת היסטוריית כיתת האם נכשלה'
     });
   }
 });
@@ -1318,7 +1323,7 @@ router.get('/history/school-years', authMiddleware, async (_req: AuthenticatedRe
     logger.error('Error fetching homeroom school years:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch homeroom school years'
+      error: 'טעינת שנות הלימוד של כיתת האם נכשלה'
     });
   }
 });
@@ -1333,7 +1338,7 @@ router.get('/history/:id/assignments', authMiddleware, async (req: Authenticated
     if (!Number.isInteger(homeroomId)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid homeroom id'
+        error: 'מזהה כיתת האם אינו תקין'
       });
     }
 
@@ -1352,7 +1357,7 @@ router.get('/history/:id/assignments', authMiddleware, async (req: Authenticated
     if (!homeroom) {
       return res.status(404).json({
         success: false,
-        error: 'Homeroom not found for selected school year'
+        error: 'לא נמצאה כיתת אם עבור שנת הלימוד שנבחרה'
       });
     }
 
@@ -1397,7 +1402,7 @@ router.get('/history/:id/assignments', authMiddleware, async (req: Authenticated
     logger.error('Error fetching homeroom assignment history:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch homeroom assignment history'
+      error: 'טעינת היסטוריית השיבוצים של כיתת האם נכשלה'
     });
   }
 });
@@ -1439,7 +1444,7 @@ router.get('/debug/all-school-years', authMiddleware, async (_req: Authenticated
     logger.error('Error fetching all homeroom school years:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch all homeroom school years'
+      error: 'טעינת כל שנות הלימוד של כיתות האם נכשלה'
     });
   }
 });
@@ -1451,7 +1456,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     if (!id) {
       return res.status(400).json({
         success: false,
-        error: 'ID is required'
+        error: 'חובה לשלוח מזהה'
       });
     }
 
@@ -1468,7 +1473,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     if (homeroomQuery.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Homeroom not found'
+        error: 'כיתת האם לא נמצאה'
       });
     }
 
@@ -1497,7 +1502,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     logger.error('Error fetching homeroom:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch homeroom'
+      error: 'טעינת כיתת האם נכשלה'
     });
   }
 });
@@ -1510,7 +1515,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (!homeroomData.room_id || !homeroomData.grade_id || !homeroomData.class_number) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: room_id, grade_id, class_number'
+        error: 'חסרים שדות חובה: room_id, grade_id, class_number'
       });
     }
 
@@ -1524,7 +1529,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (Number.isNaN(class_number) || !room_id || !grade_id) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid field values: room_id and grade_id must be valid, class_number must be number'
+        error: 'ערכי השדות אינם תקינים: room_id ו-grade_id חייבים להיות תקינים, ו-class_number חייב להיות מספר'
       });
     }
 
@@ -1536,7 +1541,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (existingQuery.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        error: 'Room is already assigned as homeroom for this school year'
+        error: 'החדר כבר משויך ככיתת אם בשנת לימודים זו'
       });
     }
 
@@ -1552,7 +1557,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (duplicateHomeroomQuery) {
       return res.status(400).json({
         success: false,
-        error: 'Homeroom already exists for this grade and class number in the selected school year'
+        error: 'כיתת אם כבר קיימת עבור שכבה ומספר כיתה אלה בשנת הלימודים שנבחרה'
       });
     }
 
@@ -1585,7 +1590,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     logger.error('Error creating homeroom:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create homeroom'
+      error: 'יצירת כיתת האם נכשלה'
     });
   }
 });
@@ -1602,7 +1607,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     if (!existingHomeroom) {
       return res.status(404).json({
         success: false,
-        error: 'Homeroom not found'
+        error: 'כיתת האם לא נמצאה'
       });
     }
 
@@ -1659,7 +1664,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
       if (duplicateHomeroom) {
         return res.status(400).json({
           success: false,
-          error: 'Homeroom already exists for this grade and class number in the selected school year'
+          error: 'כיתת אם כבר קיימת עבור שכבה ומספר כיתה אלה בשנת הלימודים שנבחרה'
         });
       }
     }
@@ -1694,7 +1699,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     logger.error('Error updating homeroom:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update homeroom'
+      error: 'עדכון כיתת האם נכשל'
     });
   }
 });
@@ -1707,7 +1712,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
     if (!id || Number.isNaN(homeroomId)) {
       return res.status(400).json({
         success: false,
-        error: 'ID is required'
+        error: 'חובה לשלוח מזהה'
       });
     }
 
@@ -1715,7 +1720,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
     if (existingQuery.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Homeroom not found'
+        error: 'כיתת האם לא נמצאה'
       });
     }
 
@@ -1735,7 +1740,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
 
     res.json({
       success: true,
-      message: 'Homeroom deleted successfully',
+      message: 'כיתת האם נמחקה בהצלחה',
       data: {
         deletedAssignmentsCount
       }
@@ -1744,7 +1749,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
     logger.error('Error deleting homeroom:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete homeroom'
+      error: 'מחיקת כיתת האם נכשלה'
     });
   }
 });
@@ -1757,7 +1762,7 @@ router.put('/:id/assign-teacher', authMiddleware, async (req: AuthenticatedReque
     if (!teacher_id) {
       return res.status(400).json({
         success: false,
-        error: 'teacher_id is required'
+        error: 'חובה לשלוח teacher_id'
       });
     }
 
@@ -1769,7 +1774,7 @@ router.put('/:id/assign-teacher', authMiddleware, async (req: AuthenticatedReque
     if (teacherQuery.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Teacher not found or insufficient permissions'
+        error: 'המורה לא נמצא או שאין לו הרשאות מתאימות'
       });
     }
 
@@ -1780,13 +1785,13 @@ router.put('/:id/assign-teacher', authMiddleware, async (req: AuthenticatedReque
 
     res.json({
       success: true,
-      message: 'Teacher assigned successfully'
+      message: 'המורה שובץ בהצלחה'
     });
   } catch (error) {
     logger.error('Error assigning teacher:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to assign teacher'
+      error: 'שיוך המורה נכשל'
     });
   }
 });
@@ -1849,7 +1854,7 @@ router.post('/utilization-report', authMiddleware, async (req: AuthenticatedRequ
     logger.error('Error generating utilization report:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate utilization report'
+      error: 'יצירת דוח הניצול נכשלה'
     });
   }
 });

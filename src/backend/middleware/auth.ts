@@ -54,7 +54,7 @@ export const authMiddleware = async (req: AuthenticatedRequest, res: Response, n
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
-      return res.status(401).json({ error: 'Access denied. No token provided.' });
+      return res.status(401).json({ error: 'הגישה נדחתה. לא סופק טוקן.' });
     }
 
     const decoded = verifyAccessToken(token);
@@ -64,7 +64,7 @@ export const authMiddleware = async (req: AuthenticatedRequest, res: Response, n
       const resolvedUser = await resolveDevelopmentUser(decoded.id, decoded.email);
 
       if (!resolvedUser) {
-        return res.status(401).json({ error: 'Invalid token. User not found.' });
+        return res.status(401).json({ error: 'הטוקן אינו תקין. המשתמש לא נמצא.' });
       }
 
       req.user = {
@@ -84,7 +84,7 @@ export const authMiddleware = async (req: AuthenticatedRequest, res: Response, n
       .first();
     
     if (!user) {
-      return res.status(401).json({ error: 'Invalid token. User not found.' });
+      return res.status(401).json({ error: 'הטוקן אינו תקין. המשתמש לא נמצא.' });
     }
 
     req.user = {
@@ -98,18 +98,18 @@ export const authMiddleware = async (req: AuthenticatedRequest, res: Response, n
     next();
   } catch (error) {
     logError('Authentication failed', error);
-    return res.status(401).json({ error: 'Invalid token.' });
+    return res.status(401).json({ error: 'הטוקן אינו תקין.' });
   }
 };
 
 export const requireRole = (roles: UserRole[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required.' });
+      return res.status(401).json({ error: 'נדרש אימות משתמש.' });
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions.' });
+      return res.status(403).json({ error: 'אין הרשאה מספקת.' });
     }
 
     next();

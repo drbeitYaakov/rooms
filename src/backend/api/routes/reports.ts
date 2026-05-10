@@ -57,7 +57,7 @@ router.get('/utilization', async (req: any, res: Response) => {
     });
   } catch (error) {
     logger.error('Error fetching utilization report:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch utilization report' });
+    res.status(500).json({ success: false, error: 'טעינת דוח הניצול נכשלה' });
   }
 });
 
@@ -112,7 +112,7 @@ router.get('/conflicts', async (req: any, res: Response) => {
     });
   } catch (error) {
     logger.error('Error fetching conflicts report:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch conflicts report' });
+    res.status(500).json({ success: false, error: 'טעינת דוח ההתנגשויות נכשלה' });
   }
 });
 
@@ -172,7 +172,7 @@ router.get('/statistics', async (req: any, res: Response) => {
     });
   } catch (error) {
     logger.error('Error fetching statistics report:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch statistics report' });
+    res.status(500).json({ success: false, error: 'טעינת דוח הסטטיסטיקה נכשלה' });
   }
 });
 
@@ -196,7 +196,7 @@ router.get('/export', async (req: any, res: Response) => {
         data = statsResponse.data;
         break;
       default:
-        return res.status(400).json({ success: false, error: 'Invalid report type' });
+        return res.status(400).json({ success: false, error: 'סוג הדוח אינו תקין' });
     }
 
     res.json({
@@ -211,7 +211,7 @@ router.get('/export', async (req: any, res: Response) => {
     });
   } catch (error) {
     logger.error('Error exporting report:', error);
-    res.status(500).json({ success: false, error: 'Failed to export report' });
+    res.status(500).json({ success: false, error: 'ייצוא הדוח נכשל' });
   }
 });
 

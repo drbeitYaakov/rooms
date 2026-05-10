@@ -46,7 +46,7 @@ router.get('/conflicts', authMiddleware, asyncHandler(async (req: AuthenticatedR
     console.error('Error fetching conflicts:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch conflicts'
+      error: 'טעינת ההתנגשויות נכשלה'
     });
   }
 }));
@@ -74,7 +74,7 @@ router.post('/override', authMiddleware, asyncHandler(async (req: AuthenticatedR
     console.error('Error overriding assignment:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to override assignment'
+      error: 'דריסת השיבוץ נכשלה'
     });
   }
 }));
@@ -93,7 +93,7 @@ router.post('/resolve-conflict', authMiddleware, asyncHandler(async (req: Authen
     if (conflictingAssignments.length < 2) {
       return res.status(400).json({
         success: false,
-        error: 'No conflicting assignments found'
+        error: 'לא נמצאו שיבוצים מתנגשים'
       });
     }
 
@@ -122,13 +122,13 @@ router.post('/resolve-conflict', authMiddleware, asyncHandler(async (req: Authen
 
     res.json({
       success: true,
-      message: `Conflict resolved with resolution: ${resolution}`
+      message: `ההתנגשות נפתרה בהצלחה (${resolution})`
     });
   } catch (error: any) {
     console.error('Error resolving conflict:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to resolve conflict'
+      error: 'פתרון ההתנגשות נכשל'
     });
   }
 }));

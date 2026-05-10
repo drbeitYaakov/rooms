@@ -327,7 +327,7 @@ router.get('/', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, r
       console.error('❌ Table access failed:', tableError);
       return res.status(500).json({
         success: false,
-        error: 'Database table access failed',
+        error: 'הגישה לטבלאות מסד הנתונים נכשלה',
         details: tableError.message
       });
     }
@@ -444,7 +444,7 @@ router.get('/', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, r
     console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch assignments',
+      error: 'טעינת השיבוצים נכשלה',
       details: error.message
     });
   }
@@ -687,7 +687,7 @@ router.post('/', authMiddleware, requireCoordinator, asyncHandler(async (req: Au
     if (!validTypes.includes(finalType)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid type: ${finalType}. Valid types: ${validTypes.join(', ')}`
+        error: `סוג השיבוץ אינו תקין: ${finalType}. הערכים התקינים הם: ${validTypes.join(', ')}`
       });
     }
     
@@ -704,7 +704,7 @@ router.post('/', authMiddleware, requireCoordinator, asyncHandler(async (req: Au
     if (!isValidManualActivityType(finalActivityType)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid activity_type: ${finalActivityType}`
+        error: `activity_type אינו תקין: ${finalActivityType}`
       });
     }
 
@@ -843,7 +843,7 @@ router.post('/', authMiddleware, requireCoordinator, asyncHandler(async (req: Au
   if (!result.success) {
     return res.status(400).json({
       success: false,
-      error: result.errors?.[0] || 'Failed to create assignment',
+      error: result.errors?.[0] || 'יצירת השיבוץ נכשלה',
       conflicts: result.conflicts,
       alternativeRooms: result.alternativeRooms,
       errors: result.errors,
@@ -856,7 +856,7 @@ router.post('/', authMiddleware, requireCoordinator, asyncHandler(async (req: Au
     if (!result.assignment.room_id || result.assignment.room_id === '' || typeof result.assignment.room_id !== 'string') {
       return res.status(400).json({
         success: false,
-        error: 'Invalid room ID'
+        error: 'מזהה החדר אינו תקין'
       });
     }
 
@@ -912,7 +912,7 @@ router.post('/', authMiddleware, requireCoordinator, asyncHandler(async (req: Au
   } else {
     res.status(400).json({
       success: false,
-      error: 'No suitable room found',
+      error: 'לא נמצא חדר מתאים',
       alternativeRooms: result.alternativeRooms,
       errors: result.errors
     });
@@ -943,7 +943,7 @@ router.post('/homeroom-default', authMiddleware, requireCoordinator, asyncHandle
   if (!room_id || !targetDate || !start_time || !end_time) {
     return res.status(400).json({
       success: false,
-      error: 'room_id, target_date, start_time and end_time are required'
+      error: 'חובה לשלוח room_id, target_date, start_time ו-end_time'
     });
   }
 
@@ -957,7 +957,7 @@ router.post('/homeroom-default', authMiddleware, requireCoordinator, asyncHandle
   ) {
     return res.status(400).json({
       success: false,
-      error: 'Start time must be earlier than end time'
+      error: 'שעת ההתחלה חייבת להיות מוקדמת משעת הסיום'
     });
   }
 
@@ -1049,7 +1049,7 @@ router.delete('/homeroom-default', authMiddleware, requireCoordinator, asyncHand
   if (!roomId || !targetDate) {
     return res.status(400).json({
       success: false,
-      error: 'room_id and target_date are required'
+      error: 'יש לבחור חדר ותאריך יעד'
     });
   }
 
@@ -1120,7 +1120,7 @@ router.put('/:id', authMiddleware, requireCoordinator, asyncHandler(async (req: 
   if (!targetDate || !start_time || !end_time) {
     return res.status(400).json({
       success: false,
-      error: 'target_date, start_time and end_time are required'
+      error: 'חובה לשלוח target_date, start_time ו-end_time'
     });
   }
 
@@ -1134,7 +1134,7 @@ router.put('/:id', authMiddleware, requireCoordinator, asyncHandler(async (req: 
   ) {
     return res.status(400).json({
       success: false,
-      error: 'Start time must be earlier than end time'
+      error: 'שעת ההתחלה חייבת להיות מוקדמת משעת הסיום'
     });
   }
 
@@ -1322,7 +1322,7 @@ router.delete('/:id', authMiddleware, requireCoordinator, asyncHandler(async (re
   if (!targetDate) {
     return res.status(400).json({
       success: false,
-      error: 'target_date is required'
+      error: 'חובה לשלוח target_date'
     });
   }
   try {

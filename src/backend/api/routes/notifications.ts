@@ -11,7 +11,7 @@ router.get('/', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, r
   const { unread = false } = req.query;
   
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'נדרש אימות משתמש' });
   }
   
   let query = db('notifications')
@@ -32,7 +32,7 @@ router.put('/:id/read', authMiddleware, asyncHandler(async (req: AuthenticatedRe
   const { id } = req.params;
   
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'נדרש אימות משתמש' });
   }
   
   const updated = await db('notifications')
@@ -46,16 +46,16 @@ router.put('/:id/read', authMiddleware, asyncHandler(async (req: AuthenticatedRe
     });
   
   if (!updated) {
-    return res.status(404).json({ error: 'Notification not found' });
+    return res.status(404).json({ error: 'ההתראה לא נמצאה' });
   }
   
-  res.json({ message: 'Notification marked as read' });
+  res.json({ message: 'ההתראה סומנה כנקראה' });
 }));
 
 // Mark all notifications as read
 router.put('/read-all', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'נדרש אימות משתמש' });
   }
   
   await db('notifications')
@@ -66,7 +66,7 @@ router.put('/read-all', authMiddleware, asyncHandler(async (req: AuthenticatedRe
       read_at: new Date()
     });
   
-  res.json({ message: 'All notifications marked as read' });
+  res.json({ message: 'כל ההתראות סומנו כנקראו' });
 }));
 
 // Create notification (internal use)

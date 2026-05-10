@@ -44,7 +44,7 @@ router.get('/', authMiddleware, async (_req: AuthenticatedRequest, res: Response
     logger.error('Error fetching academic years:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch academic years',
+      error: 'טעינת שנות הלימוד נכשלה',
     });
   }
 });
@@ -63,7 +63,7 @@ router.get('/active', authMiddleware, async (_req: AuthenticatedRequest, res: Re
     logger.error('Error fetching active academic year:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch active academic year',
+      error: 'טעינת שנת הלימוד הפעילה נכשלה',
     });
   }
 });
@@ -75,7 +75,7 @@ router.post('/', authMiddleware, requireAdmin, async (req: AuthenticatedRequest,
     if (!year_name || !start_date || !end_date) {
       return res.status(400).json({
         success: false,
-        error: 'year_name, start_date and end_date are required',
+        error: 'חובה למלא year_name, start_date ו-end_date',
       });
     }
 
@@ -85,14 +85,14 @@ router.post('/', authMiddleware, requireAdmin, async (req: AuthenticatedRequest,
     if (!normalizedStartDate || !normalizedEndDate) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid dates supplied',
+        error: 'הוזנו תאריכים לא תקינים',
       });
     }
 
     if (normalizedStartDate > normalizedEndDate) {
       return res.status(400).json({
         success: false,
-        error: 'start_date must be earlier than end_date',
+        error: 'תאריך ההתחלה חייב להיות מוקדם מתאריך הסיום',
       });
     }
 
@@ -103,7 +103,7 @@ router.post('/', authMiddleware, requireAdmin, async (req: AuthenticatedRequest,
     if (existingYear) {
       return res.status(400).json({
         success: false,
-        error: 'Academic year with this name already exists',
+        error: 'כבר קיימת שנת לימוד בשם הזה',
       });
     }
 
@@ -141,7 +141,7 @@ router.post('/', authMiddleware, requireAdmin, async (req: AuthenticatedRequest,
     logger.error('Error creating academic year:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create academic year',
+      error: 'יצירת שנת הלימוד נכשלה',
     });
   }
 });
@@ -154,7 +154,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req: AuthenticatedReques
     if (!existingYear) {
       return res.status(404).json({
         success: false,
-        error: 'Academic year not found',
+        error: 'שנת הלימוד לא נמצאה',
       });
     }
 
@@ -165,7 +165,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req: AuthenticatedReques
       if (!nextName) {
         return res.status(400).json({
           success: false,
-          error: 'year_name cannot be empty',
+          error: 'שם שנת הלימודים לא יכול להיות ריק',
         });
       }
 
@@ -177,7 +177,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req: AuthenticatedReques
       if (duplicateYear) {
         return res.status(400).json({
           success: false,
-          error: 'Academic year with this name already exists',
+          error: 'כבר קיימת שנת לימוד בשם הזה',
         });
       }
 
@@ -189,7 +189,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req: AuthenticatedReques
       if (!normalizedStartDate) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid start_date supplied',
+          error: 'הוזן start_date לא תקין',
         });
       }
       updates.start_date = normalizedStartDate;
@@ -200,7 +200,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req: AuthenticatedReques
       if (!normalizedEndDate) {
         return res.status(400).json({
           success: false,
-          error: 'Invalid end_date supplied',
+          error: 'הוזן end_date לא תקין',
         });
       }
       updates.end_date = normalizedEndDate;
@@ -216,7 +216,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req: AuthenticatedReques
     if (nextStartDate > nextEndDate) {
       return res.status(400).json({
         success: false,
-        error: 'start_date must be earlier than end_date',
+        error: 'תאריך ההתחלה חייב להיות מוקדם מתאריך הסיום',
       });
     }
 
@@ -238,7 +238,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req: AuthenticatedReques
     logger.error('Error updating academic year:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update academic year',
+      error: 'עדכון שנת הלימוד נכשל',
     });
   }
 });
@@ -295,21 +295,21 @@ router.post('/:id/activate', authMiddleware, requireAdmin, async (req: Authentic
     if (error instanceof Error && error.message === 'ACADEMIC_YEAR_NOT_FOUND') {
       return res.status(404).json({
         success: false,
-        error: 'Academic year not found',
+        error: 'שנת הלימוד לא נמצאה',
       });
     }
 
     if (error instanceof Error && error.message === 'ACADEMIC_YEAR_ARCHIVED') {
       return res.status(400).json({
         success: false,
-        error: 'Archived academic year cannot be activated',
+        error: 'לא ניתן להפעיל שנת לימוד בארכיון',
       });
     }
 
     logger.error('Error activating academic year:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to activate academic year',
+      error: 'הפעלת שנת הלימוד נכשלה',
     });
   }
 });

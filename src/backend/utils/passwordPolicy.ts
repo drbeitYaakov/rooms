@@ -4,7 +4,7 @@ export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 export const validatePasswordStrength = (password: string): string | null => {
   if (password.length < PASSWORD_MIN_LENGTH) {
-    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters long`;
+    return `הסיסמה חייבת להכיל לפחות ${PASSWORD_MIN_LENGTH} תווים`;
   }
 
   const hasUppercase = /[A-Z]/.test(password);
@@ -13,7 +13,7 @@ export const validatePasswordStrength = (password: string): string | null => {
   const hasSpecial = /[^A-Za-z0-9]/.test(password);
 
   if (!hasUppercase || !hasLowercase || !hasDigit || !hasSpecial) {
-    return 'Password must include uppercase, lowercase, number, and special character';
+    return 'הסיסמה חייבת לכלול אות גדולה, אות קטנה, מספר ותו מיוחד';
   }
 
   return null;

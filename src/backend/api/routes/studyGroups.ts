@@ -155,6 +155,16 @@ interface PlannedRoomAssignment {
   room: RoomAvailabilityRow;
 }
 
+interface RoomCandidateScore {
+  room: RoomAvailabilityRow;
+  score: number;
+}
+
+interface SlotOptimizationResult {
+  matches: PlannedRoomAssignment[];
+  unmatchedUnits: SchedulingUnit[];
+}
+
 const isUuid = (value: unknown): boolean =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -595,7 +605,7 @@ function timeRangesOverlap(startA: string, endA: string, startB: string, endB: s
   return normalizedStartA < normalizedEndB && normalizedEndA > normalizedStartB;
 }
 
-function normalizeRoomCategory(room: RoomAvailabilityRow): 'source_homeroom' | 'other_homeroom' | 'study' | 'mamad' | 'room302' | 'other' {
+function normalizeRoomCategory(room: RoomAvailabilityRow): 'source_homeroom' | 'other_homeroom' | 'study' | 'mamad' | 'caravan' | 'room302' | 'other' {
   const normalizedType = String(room.room_type || '').toUpperCase();
 
   if (room.room_number === '302') {
@@ -612,6 +622,10 @@ function normalizeRoomCategory(room: RoomAvailabilityRow): 'source_homeroom' | '
 
   if (normalizedType === 'MAMAD' || normalizedType === 'COMPUTER' || normalizedType === 'COMPUTER_LAB') {
     return 'mamad';
+  }
+
+  if (normalizedType === 'CARAVAN') {
+    return 'caravan';
   }
 
   return 'other';
@@ -682,14 +696,28 @@ function isRoomBlocked(
   startTime: string,
   endTime: string,
   existingAssignments: ExistingAssignmentRow[],
-  plannedAssignments: PlannedRoomAssignment[]
+  plannedAssignments: PlannedRoomAssignment[],
+  unit?: SchedulingUnit
 ): boolean {
-  const conflictsWithExisting = existingAssignments.some((assignment) =>
-    assignment.room_id === roomId &&
-    assignment.assignable_type !== 'homeroom' &&
-    getAssignmentDate(assignment) === date &&
-    timeRangesOverlap(assignment.start_time, assignment.end_time, startTime, endTime)
-  );
+  const conflictsWithExisting = existingAssignments.some((assignment) => {
+    if (
+      assignment.room_id !== roomId ||
+      getAssignmentDate(assignment) !== date ||
+      !timeRangesOverlap(assignment.start_time, assignment.end_time, startTime, endTime)
+    ) {
+      return false;
+    }
+
+    if (assignment.assignable_type !== 'homeroom') {
+      return true;
+    }
+
+    if (!unit) {
+      return true;
+    }
+
+    return !unit.group.homeroom_ids.includes(String(assignment.assignable_id || ''));
+  });
 
   if (conflictsWithExisting) {
     return true;
@@ -815,15 +843,17 @@ function scoreRoomForUnit(
     else if (category === 'other_homeroom') score += 850;
     else if (category === 'study') score += 500;
     else if (category === 'mamad') score += 250;
-    else if (category === 'room302') score += unit.group.group_type === 'english' ? 90 : 20;
-    else score += 120;
+    else if (category === 'caravan') score += 80;
+    else if (category === 'room302') score += 20;
+    else score += 0;
   } else {
     if (category === 'study') score += 900;
     else if (isSourceHomeroom) score += 700;
-    else if (category === 'other_homeroom') score += 520;
+    else if (category === 'other_homeroom') score += 220;
     else if (category === 'mamad') score += 260;
-    else if (category === 'room302') score += unit.group.group_type === 'english' ? 120 : 10;
-    else score += 180;
+    else if (category === 'caravan') score += 60;
+    else if (category === 'room302') score += 10;
+    else score += 0;
   }
 
   if (unit.group.group_type === 'math') {
@@ -854,55 +884,245 @@ function scoreRoomForUnit(
   return score;
 }
 
+function getCandidateRoomsForUnit(
+  unit: SchedulingUnit,
+  rooms: RoomAvailabilityRow[],
+  plannedAssignments: PlannedRoomAssignment[],
+  existingAssignments: ExistingAssignmentRow[]
+): RoomCandidateScore[] {
+  return rooms
+    .filter((room) => {
+      const category = normalizeRoomCategory(room);
+      const isSourceHomeroom = unit.homeroom_room_ids.includes(room.id);
+
+      if (!room.is_active) {
+        return false;
+      }
+
+      const isAllowedCategory =
+        isSourceHomeroom ||
+        category === 'other_homeroom' ||
+        category === 'study' ||
+        category === 'mamad' ||
+        category === 'caravan';
+
+      if (!isAllowedCategory) {
+        return false;
+      }
+
+      if (room.capacity < unit.group.student_count) {
+        return false;
+      }
+
+      if (unit.group.needs_projector && !room.has_projector) {
+        return false;
+      }
+
+      if (room.is_small && (unit.group.is_large_group || unit.group.student_count >= 32)) {
+        return false;
+      }
+
+      return !isRoomBlocked(room.id, unit.date, unit.start_time, unit.end_time, existingAssignments, plannedAssignments, unit);
+    })
+    .map((room) => ({
+      room,
+      score: scoreRoomForUnit(unit, room, plannedAssignments, existingAssignments)
+    }));
+}
+
+function optimizeSlotAssignments(
+  units: SchedulingUnit[],
+  rooms: RoomAvailabilityRow[],
+  plannedAssignments: PlannedRoomAssignment[],
+  existingAssignments: ExistingAssignmentRow[]
+): SlotOptimizationResult {
+  if (units.length === 0) {
+    return {
+      matches: [],
+      unmatchedUnits: []
+    };
+  }
+
+  const unitCandidates = units.map((unit) => getCandidateRoomsForUnit(unit, rooms, plannedAssignments, existingAssignments));
+  const candidateRoomIds = Array.from(new Set(unitCandidates.flatMap((candidates) => candidates.map((candidate) => candidate.room.id))));
+
+  if (candidateRoomIds.length === 0) {
+    return {
+      matches: [],
+      unmatchedUnits: units
+    };
+  }
+
+  const roomIndexById = new Map(candidateRoomIds.map((roomId, index) => [roomId, index]));
+  const roomById = new Map(
+    unitCandidates.flatMap((candidates) => candidates.map((candidate) => [candidate.room.id, candidate.room] as const))
+  );
+
+  type FlowEdge = {
+    to: number;
+    rev: number;
+    capacity: number;
+    cost: number;
+    originalCapacity: number;
+  };
+
+  const graph: FlowEdge[][] = [];
+  const addNode = () => {
+    graph.push([]);
+    return graph.length - 1;
+  };
+
+  const addEdge = (from: number, to: number, capacity: number, cost: number) => {
+    const forward: FlowEdge = {
+      to,
+      rev: graph[to].length,
+      capacity,
+      cost,
+      originalCapacity: capacity
+    };
+    const backward: FlowEdge = {
+      to: from,
+      rev: graph[from].length,
+      capacity: 0,
+      cost: -cost,
+      originalCapacity: 0
+    };
+
+    graph[from].push(forward);
+    graph[to].push(backward);
+  };
+
+  const source = addNode();
+  const unitNodes = units.map(() => addNode());
+  const roomNodes = candidateRoomIds.map(() => addNode());
+  const sink = addNode();
+  const assignmentBonus = 1_000_000;
+
+  unitNodes.forEach((node) => addEdge(source, node, 1, 0));
+  roomNodes.forEach((node) => addEdge(node, sink, 1, 0));
+
+  unitCandidates.forEach((candidates, unitIndex) => {
+    candidates.forEach((candidate) => {
+      const roomIndex = roomIndexById.get(candidate.room.id);
+      if (roomIndex === undefined) {
+        return;
+      }
+
+      addEdge(unitNodes[unitIndex], roomNodes[roomIndex], 1, -(assignmentBonus + candidate.score));
+    });
+  });
+
+  while (true) {
+    const distances = Array(graph.length).fill(Number.POSITIVE_INFINITY);
+    const inQueue = Array(graph.length).fill(false);
+    const previousNode = Array(graph.length).fill(-1);
+    const previousEdge = Array(graph.length).fill(-1);
+    const queue: number[] = [source];
+
+    distances[source] = 0;
+    inQueue[source] = true;
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      inQueue[current] = false;
+
+      graph[current].forEach((edge, edgeIndex) => {
+        if (edge.capacity <= 0) {
+          return;
+        }
+
+        const candidateDistance = distances[current] + edge.cost;
+        if (candidateDistance >= distances[edge.to]) {
+          return;
+        }
+
+        distances[edge.to] = candidateDistance;
+        previousNode[edge.to] = current;
+        previousEdge[edge.to] = edgeIndex;
+
+        if (!inQueue[edge.to]) {
+          queue.push(edge.to);
+          inQueue[edge.to] = true;
+        }
+      });
+    }
+
+    if (!Number.isFinite(distances[sink]) || distances[sink] >= 0) {
+      break;
+    }
+
+    let current = sink;
+    while (current !== source) {
+      const from = previousNode[current];
+      const edgeIndex = previousEdge[current];
+
+      if (from === -1 || edgeIndex === -1) {
+        break;
+      }
+
+      const edge = graph[from][edgeIndex];
+      edge.capacity -= 1;
+      graph[current][edge.rev].capacity += 1;
+      current = from;
+    }
+  }
+
+  const matches: PlannedRoomAssignment[] = [];
+  const matchedUnitKeys = new Set<string>();
+  const roomNodeSet = new Set(roomNodes);
+
+  unitNodes.forEach((unitNode, unitIndex) => {
+    graph[unitNode].forEach((edge) => {
+      if (!roomNodeSet.has(edge.to) || edge.originalCapacity !== 1 || edge.capacity !== 0) {
+        return;
+      }
+
+      const roomNodeIndex = roomNodes.indexOf(edge.to);
+      if (roomNodeIndex === -1) {
+        return;
+      }
+
+      const roomId = candidateRoomIds[roomNodeIndex];
+      const room = roomById.get(roomId);
+      if (!room) {
+        return;
+      }
+
+      matches.push({
+        unit: units[unitIndex],
+        room
+      });
+      matchedUnitKeys.add(units[unitIndex].key);
+    });
+  });
+
+  return {
+    matches,
+    unmatchedUnits: units.filter((unit) => !matchedUnitKeys.has(unit.key))
+  };
+}
+
 function pickBestRoomForUnit(
   unit: SchedulingUnit,
   rooms: RoomAvailabilityRow[],
   plannedAssignments: PlannedRoomAssignment[],
   existingAssignments: ExistingAssignmentRow[]
 ): RoomAvailabilityRow | null {
-  const candidateRooms = rooms.filter((room) => {
-    const category = normalizeRoomCategory(room);
-    const isSourceHomeroom = unit.homeroom_room_ids.includes(room.id);
-
-    if (!room.is_active) {
-      return false;
-    }
-
-    // Do not automatically place a group in another class's homeroom.
-    // Study groups may use their own homeroom or dedicated non-homeroom spaces.
-    if (category === 'other_homeroom' && !isSourceHomeroom) {
-      return false;
-    }
-
-    if (room.capacity < unit.group.student_count) {
-      return false;
-    }
-
-    if (unit.group.needs_projector && !room.has_projector) {
-      return false;
-    }
-
-    if (room.is_small && (unit.group.is_large_group || unit.group.student_count >= 32)) {
-      return false;
-    }
-
-    return !isRoomBlocked(room.id, unit.date, unit.start_time, unit.end_time, existingAssignments, plannedAssignments);
-  });
+  const candidateRooms = getCandidateRoomsForUnit(unit, rooms, plannedAssignments, existingAssignments);
 
   if (candidateRooms.length === 0) {
     return null;
   }
 
   return [...candidateRooms].sort((left, right) => {
-    const scoreDifference = scoreRoomForUnit(unit, right, plannedAssignments, existingAssignments) -
-      scoreRoomForUnit(unit, left, plannedAssignments, existingAssignments);
+    const scoreDifference = right.score - left.score;
 
     if (scoreDifference !== 0) {
       return scoreDifference;
     }
 
-    return left.room_number.localeCompare(right.room_number);
-  })[0];
+    return left.room.room_number.localeCompare(right.room.room_number);
+  })[0].room;
 }
 
 async function scheduleStudyGroupHagbatzot(
@@ -1049,6 +1269,174 @@ async function scheduleStudyGroupHagbatzot(
   };
 }
 
+async function scheduleStudyGroupHagbatzotGlobally(
+  groups: SchedulableStudyGroup[],
+  startDate: string,
+  endDate: string,
+  requesterId: string
+): Promise<HagbatzaSchedulingResult> {
+  const activeHomerooms = await db('homerooms')
+    .select('id', 'room_id')
+    .where('is_active', true);
+
+  const homeroomRoomMap = new Map<string, string>(
+    activeHomerooms
+      .filter((homeroom: any) => homeroom.room_id)
+      .map((homeroom: any) => [String(homeroom.id), String(homeroom.room_id)])
+  );
+
+  const rooms = await db('rooms')
+    .select('id', 'room_number', 'room_type', 'capacity', 'has_projector', 'is_small', 'priority', 'is_active', 'grade_level', 'notes')
+    .where({ is_active: true })
+    .orderBy('room_number', 'asc') as RoomAvailabilityRow[];
+
+  const existingAssignments = await db('assignments')
+    .select('id', 'room_id', 'assignable_id', 'assignable_type', 'date', 'start_date', 'specific_date', 'start_time', 'end_time', 'status')
+    .whereIn('status', ['active', 'scheduled'])
+    .andWhere((builder) => {
+      builder
+        .whereBetween('date', [startDate, endDate])
+        .orWhereBetween('start_date', [startDate, endDate])
+        .orWhereBetween('specific_date', [startDate, endDate]);
+    }) as ExistingAssignmentRow[];
+
+  const { units, warnings: initialWarnings, unscheduledGroups: initiallyUnscheduled } = buildSchedulingUnits(
+    groups,
+    startDate,
+    endDate,
+    homeroomRoomMap
+  );
+
+  const plannedAssignments: PlannedRoomAssignment[] = [];
+  const conflicts: HagbatzaConflictInfo[] = [];
+  const warnings = [...initialWarnings];
+  const unscheduledGroupIds = new Set(initiallyUnscheduled.map((group) => group.id));
+  const unitsBySlot = units.reduce((accumulator, unit) => {
+    const slotUnits = accumulator.get(unit.slot_key) || [];
+    slotUnits.push(unit);
+    accumulator.set(unit.slot_key, slotUnits);
+    return accumulator;
+  }, new Map<string, SchedulingUnit[]>());
+
+  for (const [, slotUnits] of unitsBySlot) {
+    const largeUnits = slotUnits.filter((unit) => unit.group.is_large_group || unit.group.student_count >= 30);
+    const smallUnits = slotUnits.filter((unit) => !largeUnits.some((largeUnit) => largeUnit.key === unit.key));
+
+    const largeOptimization = optimizeSlotAssignments(
+      largeUnits,
+      rooms,
+      plannedAssignments,
+      existingAssignments
+    );
+
+    largeOptimization.matches.forEach((match) => plannedAssignments.push(match));
+
+    const smallOptimization = optimizeSlotAssignments(
+      smallUnits,
+      rooms,
+      plannedAssignments,
+      existingAssignments
+    );
+
+    smallOptimization.matches.forEach((match) => plannedAssignments.push(match));
+
+    const unmatchedUnits = [...largeOptimization.unmatchedUnits, ...smallOptimization.unmatchedUnits];
+
+    for (const unit of unmatchedUnits) {
+      conflicts.push({
+        group_id: unit.group.id,
+        room_id: null,
+        conflict_type: 'room_unavailable',
+        message: `לא נמצא חדר פנוי עבור ${unit.group.name} בתאריך ${unit.date} בין ${unit.start_time} ל-${unit.end_time}.`,
+        severity: 'high'
+      });
+      warnings.push(`הקבצה ${unit.group.name} לא שובצה ב-${unit.date} ${unit.start_time}-${unit.end_time}.`);
+      unscheduledGroupIds.add(unit.group.id);
+    }
+  }
+
+  const assignments: DetailedHagbatzaAssignment[] = plannedAssignments.map(({ unit, room }) => ({
+    id: randomUUID(),
+    room_id: room.id,
+    assignment_type_id: 1,
+    assignable_type: 'study_group',
+    assignable_id: unit.group.id,
+    title: `הקבצה ${unit.group.name}`,
+    description: `${unit.group.group_type} | שכבה ${unit.group.grade_level}`,
+    date: unit.date,
+    start_time: unit.start_time,
+    end_time: unit.end_time,
+    requester_id: requesterId,
+    status: 'active',
+    is_recurring: false,
+    special_requirements: {
+      min_capacity: unit.group.student_count,
+      needs_projector: unit.group.needs_projector,
+      assignment_group: unit.group.assignment_group || null,
+      group_type: unit.group.group_type,
+      grade_level: unit.group.grade_level
+    },
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    group_name: unit.group.name,
+    group_type: unit.group.group_type,
+    grade_level: unit.group.grade_level,
+    room_number: room.room_number,
+    room_type: room.room_type,
+    student_count: unit.group.student_count,
+    needs_projector: unit.group.needs_projector
+  }));
+
+  const scheduledGroupsSummary = Array.from(
+    assignments.reduce((accumulator, assignment) => {
+      const existing = accumulator.get(assignment.assignable_id) || {
+        group_id: assignment.assignable_id,
+        group_name: assignment.group_name,
+        group_type: assignment.group_type,
+        grade_level: assignment.grade_level,
+        total_assignments: 0,
+        room_numbers: new Set<string>(),
+        dates: new Set<string>()
+      };
+
+      existing.total_assignments += 1;
+      existing.room_numbers.add(assignment.room_number);
+      existing.dates.add(assignment.date);
+      accumulator.set(assignment.assignable_id, existing);
+      return accumulator;
+    }, new Map<string, {
+      group_id: string;
+      group_name: string;
+      group_type: SchedulableStudyGroup['group_type'];
+      grade_level: string;
+      total_assignments: number;
+      room_numbers: Set<string>;
+      dates: Set<string>;
+    }>())
+  ).map(([, summary]) => ({
+    group_id: summary.group_id,
+    group_name: summary.group_name,
+    group_type: summary.group_type,
+    grade_level: summary.grade_level,
+    total_assignments: summary.total_assignments,
+    room_numbers: Array.from(summary.room_numbers).sort((left, right) => left.localeCompare(right)),
+    dates: Array.from(summary.dates).sort((left, right) => left.localeCompare(right))
+  }));
+
+  return {
+    success: conflicts.length === 0,
+    assignments,
+    conflicts,
+    warnings,
+    unscheduled_groups: groups.filter((group) => unscheduledGroupIds.has(group.id)),
+    scheduling_window: {
+      start_date: startDate,
+      end_date: endDate
+    },
+    scheduled_groups_summary: scheduledGroupsSummary
+  };
+}
+
 // Get classroom options for multi-select
 router.get('/classroom-options', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -1069,7 +1457,7 @@ router.get('/classroom-options', authMiddleware, async (req: AuthenticatedReques
     logger.error('Error fetching classroom options:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch classroom options'
+      error: 'טעינת אפשרויות הכיתות נכשלה'
     });
   }
 });
@@ -1089,7 +1477,7 @@ router.get('/group-definitions', authMiddleware, async (req: AuthenticatedReques
     logger.error('Error fetching study group definitions:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch study group definitions'
+      error: 'טעינת הגדרות ההקבצות נכשלה'
     });
   }
 });
@@ -1102,7 +1490,7 @@ router.put('/group-definitions/:gradeLevel/:groupNumber', authMiddleware, async 
     if (normalizedGroupNumber !== 1 && normalizedGroupNumber !== 2) {
       return res.status(400).json({
         success: false,
-        error: 'groupNumber must be 1 or 2'
+        error: 'מספר הקבוצה חייב להיות 1 או 2'
       });
     }
 
@@ -1110,7 +1498,7 @@ router.put('/group-definitions/:gradeLevel/:groupNumber', authMiddleware, async 
     if (!activeYear) {
       return res.status(400).json({
         success: false,
-        error: 'No active academic year found'
+        error: 'לא נמצאה שנת לימוד פעילה'
       });
     }
 
@@ -1173,7 +1561,7 @@ router.put('/group-definitions/:gradeLevel/:groupNumber', authMiddleware, async 
     logger.error('Error saving study group definition:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to save study group definition'
+      error: 'שמירת הגדרת ההקבצה נכשלה'
     });
   }
 });
@@ -1210,7 +1598,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
     logger.error('Error fetching study groups:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch study groups'
+      error: 'טעינת ההקבצות נכשלה'
     });
   }
 });
@@ -1228,7 +1616,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     if (!group) {
       return res.status(404).json({
         success: false,
-        error: 'Study group not found'
+        error: 'ההקבצה לא נמצאה'
       });
     }
 
@@ -1246,7 +1634,7 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     logger.error('Error fetching study group:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch study group'
+      error: 'טעינת ההקבצה נכשלה'
     });
   }
 });
@@ -1260,7 +1648,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (!groupData.name || !groupData.grade_level || !groupData.student_count) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: name, grade_level, student_count'
+        error: 'חסרים שדות חובה: name, grade_level, student_count'
       });
     }
     
@@ -1270,7 +1658,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (!activeYear) {
       return res.status(400).json({
         success: false,
-        error: 'No active academic year found'
+        error: 'לא נמצאה שנת לימוד פעילה'
       });
     }
 
@@ -1319,7 +1707,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     logger.error('Error creating study group:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create study group'
+      error: 'יצירת ההקבצה נכשלה'
     });
   }
 });
@@ -1338,7 +1726,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     if (!existingGroup) {
       return res.status(404).json({
         success: false,
-        error: 'Study group not found'
+        error: 'ההקבצה לא נמצאה'
       });
     }
     
@@ -1426,7 +1814,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     logger.error('Error updating study group:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update study group'
+      error: 'עדכון ההקבצה נכשל'
     });
   }
 });
@@ -1444,7 +1832,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
     if (!existingGroup) {
       return res.status(404).json({
         success: false,
-        error: 'Study group not found'
+        error: 'ההקבצה לא נמצאה'
       });
     }
     
@@ -1456,14 +1844,14 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
     
     res.json({
       success: true,
-      message: 'Study group deleted successfully'
+      message: 'ההקבצה נמחקה בהצלחה'
     });
     
   } catch (error) {
     logger.error('Error deleting study group:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete study group'
+      error: 'מחיקת ההקבצה נכשלה'
     });
   }
 });
@@ -1483,7 +1871,7 @@ router.post('/schedule', authMiddleware, async (req: AuthenticatedRequest, res: 
     if (!group_ids || !Array.isArray(group_ids) || group_ids.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'group_ids array is required'
+        error: 'חובה לשלוח מערך group_ids'
       });
     }
     
@@ -1491,7 +1879,7 @@ router.post('/schedule', authMiddleware, async (req: AuthenticatedRequest, res: 
     if (!activeYear) {
       return res.status(400).json({
         success: false,
-        error: 'No active academic year found'
+        error: 'לא נמצאה שנת לימוד פעילה'
       });
     }
 
@@ -1507,14 +1895,14 @@ router.post('/schedule', authMiddleware, async (req: AuthenticatedRequest, res: 
     if (!resolvedStartDate || !resolvedEndDate) {
       return res.status(400).json({
         success: false,
-        error: 'Active academic year date range is missing'
+        error: 'חסר טווח תאריכים לשנת הלימודים הפעילה'
       });
     }
 
     if (resolvedStartDate > resolvedEndDate) {
       return res.status(400).json({
         success: false,
-        error: 'No remaining scheduling dates are available in the active academic year'
+        error: 'לא נותרו תאריכים זמינים לשיבוץ בשנת הלימודים הפעילה'
       });
     }
 
@@ -1552,7 +1940,7 @@ if (use_custom_schedule && weekly_schedule) {
   }));
 }
     const actorId = await resolveActorId(req);
-    const result = await scheduleStudyGroupHagbatzot(
+    const result = await scheduleStudyGroupHagbatzotGlobally(
      groupsForScheduling,
   resolvedStartDate,
   resolvedEndDate,
@@ -1563,7 +1951,7 @@ if (use_custom_schedule && weekly_schedule) {
       return res.status(400).json({
         success: false,
         data: result,
-        error: 'Scheduling failed due to conflicts'
+        error: 'השיבוץ נכשל בגלל התנגשויות'
       });
     }
     
@@ -1653,7 +2041,7 @@ if (use_custom_schedule && weekly_schedule) {
 
           let selectedRoom = rooms.find((room) => room.id === assignment.room_id) || null;
 
-          if (!selectedRoom || isRoomBlocked(selectedRoom.id, unit.date, unit.start_time, unit.end_time, existingAssignments, plannedAssignments)) {
+          if (!selectedRoom || isRoomBlocked(selectedRoom.id, unit.date, unit.start_time, unit.end_time, existingAssignments, plannedAssignments, unit)) {
             const alternativeRoom = pickBestRoomForUnit(
               unit,
               rooms.filter((room) => room.id !== selectedRoom?.id),
@@ -1726,7 +2114,7 @@ if (use_custom_schedule && weekly_schedule) {
 
           if (group.group_type === 'english') {
             const englishPairsRoom = englishPairsRooms.find((room) =>
-              !isRoomBlocked(room.id, unit.date, unit.start_time, unit.end_time, existingAssignments, plannedAssignments)
+              !isRoomBlocked(room.id, unit.date, unit.start_time, unit.end_time, existingAssignments, plannedAssignments, unit)
             );
 
             if (englishPairsRoom) {
@@ -1838,7 +2226,7 @@ if (use_custom_schedule && weekly_schedule) {
       return res.status(409).json({
         success: false,
         data: result,
-        error: 'Scheduling could not place all requested occurrences'
+        error: 'השיבוץ לא הצליח למקם את כל המופעים שהתבקשו'
       });
     }
     
@@ -1851,7 +2239,7 @@ if (use_custom_schedule && weekly_schedule) {
     logger.error('Error scheduling study groups:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to schedule study groups'
+      error: 'שיבוץ ההקבצות נכשל'
     });
   }
 });
@@ -1876,7 +2264,7 @@ router.get('/:id/schedules', authMiddleware, async (req: AuthenticatedRequest, r
     logger.error('Error fetching group schedules:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch group schedules'
+      error: 'טעינת לוחות הזמנים של ההקבצה נכשלה'
     });
   }
 });
@@ -1958,7 +2346,7 @@ router.post('/export-calendar', authMiddleware, async (req: AuthenticatedRequest
     logger.error('Error exporting calendar:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to export calendar'
+      error: 'ייצוא היומן נכשל'
     });
   }
 });
@@ -2101,7 +2489,7 @@ router.post('/export-assignments-report', authMiddleware, async (req: Authentica
     logger.error('Error exporting study group assignments report:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to export study group assignments report'
+      error: 'ייצוא דוח שיבוצי ההקבצות נכשל'
     });
   }
 });

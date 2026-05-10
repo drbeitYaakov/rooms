@@ -75,7 +75,7 @@ router.get('/default-settings', authMiddleware, async (req: AuthenticatedRequest
     logger.error('Error fetching auditorium default settings:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch auditorium default settings'
+      error: 'טעינת הגדרות ברירת המחדל של האולם נכשלה'
     });
   }
 });
@@ -98,7 +98,7 @@ router.put('/default-settings/room', authMiddleware, async (req: AuthenticatedRe
     if (!roomId || !normalizedDate || !normalizedWeeklySchedule) {
       return res.status(400).json({
         success: false,
-        error: 'room_id, effective_from and weekly_schedule are required'
+        error: 'חובה לשלוח room_id, effective_from ו-weekly_schedule'
       });
     }
 
@@ -111,7 +111,7 @@ router.put('/default-settings/room', authMiddleware, async (req: AuthenticatedRe
     if (!auditorium) {
       return res.status(404).json({
         success: false,
-        error: 'Auditorium room not found'
+        error: 'חדר האולם לא נמצא'
       });
     }
 
@@ -134,13 +134,13 @@ router.put('/default-settings/room', authMiddleware, async (req: AuthenticatedRe
 
     res.json({
       success: true,
-      message: 'Auditorium override saved successfully'
+      message: 'הגדרת הדריסה של האולם נשמרה בהצלחה'
     });
   } catch (error) {
     logger.error('Error saving auditorium override setting:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to save auditorium override setting'
+      error: 'שמירת הגדרת הדריסה של האולם נכשלה'
     });
   }
 });
@@ -166,7 +166,7 @@ router.post('/sync-defaults', authMiddleware, async (req: AuthenticatedRequest, 
     logger.error('Error syncing auditorium defaults:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to sync auditorium defaults'
+      error: 'סנכרון ברירות המחדל של האולם נכשל'
     });
   }
 });

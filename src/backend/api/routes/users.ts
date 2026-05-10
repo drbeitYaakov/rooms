@@ -102,7 +102,7 @@ router.get('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequest
   if (req.user!.role === 'general_user' && req.user!.id !== id) {
     return res.status(403).json({
       success: false,
-      error: 'Access denied'
+      error: 'הגישה נדחתה'
     });
   }
 
@@ -115,7 +115,7 @@ router.get('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequest
   if (!user) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -132,7 +132,7 @@ router.post('/', authMiddleware, requireAdmin, asyncHandler(async (req: Authenti
   if (!email || !password || !name) {
     return res.status(400).json({
       success: false,
-      error: 'Email, password, and name are required'
+      error: 'חובה למלא אימייל, סיסמה ושם'
     });
   }
 
@@ -151,7 +151,7 @@ router.post('/', authMiddleware, requireAdmin, asyncHandler(async (req: Authenti
   if (existingUser) {
     return res.status(400).json({
       success: false,
-      error: 'User already exists'
+      error: 'המשתמש כבר קיים'
     });
   }
 
@@ -217,7 +217,7 @@ router.put('/:id', authMiddleware, requireAdmin, asyncHandler(async (req: Authen
   if (!existingUser) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -283,7 +283,7 @@ router.delete('/:id', authMiddleware, requireAdmin, asyncHandler(async (req: Aut
   if (!existingUser) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -305,7 +305,7 @@ router.delete('/:id', authMiddleware, requireAdmin, asyncHandler(async (req: Aut
 
   res.json({
     success: true,
-    message: 'User deleted successfully'
+    message: 'המשתמש נמחק בהצלחה'
   });
 }));
 
@@ -317,7 +317,7 @@ router.post('/:id/reset-password', authMiddleware, requireAdmin, asyncHandler(as
   if (!newPassword) {
     return res.status(400).json({
       success: false,
-      error: 'New password is required'
+      error: 'חובה להזין סיסמה חדשה'
     });
   }
 
@@ -333,7 +333,7 @@ router.post('/:id/reset-password', authMiddleware, requireAdmin, asyncHandler(as
   if (!existingUser) {
     return res.status(404).json({
       success: false,
-      error: 'User not found'
+      error: 'המשתמש לא נמצא'
     });
   }
 
@@ -345,7 +345,7 @@ router.post('/:id/reset-password', authMiddleware, requireAdmin, asyncHandler(as
   if (isSamePassword) {
     return res.status(400).json({
       success: false,
-      error: 'New password must be different from the current password'
+      error: 'הסיסמה החדשה חייבת להיות שונה מהסיסמה הנוכחית'
     });
   }
 
@@ -373,7 +373,7 @@ router.post('/:id/reset-password', authMiddleware, requireAdmin, asyncHandler(as
 
   res.json({
     success: true,
-    message: 'Password reset successfully'
+    message: 'איפוס הסיסמה בוצע בהצלחה'
   });
 }));
 
@@ -400,7 +400,7 @@ router.get('/grade/:gradeId', authMiddleware, requireCoordinator, asyncHandler(a
   if (req.user!.role === 'grade_coordinator' && req.user!.gradeId !== gradeId) {
     return res.status(403).json({
       success: false,
-      error: 'Access denied'
+      error: 'הגישה נדחתה'
     });
   }
 
