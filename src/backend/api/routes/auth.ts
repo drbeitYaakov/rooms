@@ -102,47 +102,61 @@ const isUserLocked = (user: any): boolean => {
 };
 
 const clearFailedLoginState = async (userId: string) => {
-  await db('users')
-    .where({ id: userId })
-    .update({
-      failed_login_attempts: 0,
-      locked_until: null,
-      last_login: new Date(),
-      updated_at: new Date()
+  try {
+    await db('users')
+      .where({ id: userId })
+      .update({
+        failed_login_attempts: 0,
+        locked_until: null,
+        last_login: new Date(),
+        updated_at: new Date()
+      });
+  } catch (error) {
+    console.error('[AUTH LOGIN] Failed to clear login state', {
+      userId,
+      error
     });
+  }
 };
 
 const registerFailedLoginAttempt = async (user: any, req: Request) => {
-  const nextFailedAttempts = Number(user.failed_login_attempts || 0) + 1;
-  const shouldLock = nextFailedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
-  const lockedUntil = shouldLock
-    ? new Date(Date.now() + ACCOUNT_LOCKOUT_MINUTES * 60 * 1000)
-    : null;
+  try {
+    const nextFailedAttempts = Number(user.failed_login_attempts || 0) + 1;
+    const shouldLock = nextFailedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+    const lockedUntil = shouldLock
+      ? new Date(Date.now() + ACCOUNT_LOCKOUT_MINUTES * 60 * 1000)
+      : null;
 
-  await db('users')
-    .where({ id: user.id })
-    .update({
-      failed_login_attempts: nextFailedAttempts,
-      locked_until: lockedUntil,
-      updated_at: new Date()
+    await db('users')
+      .where({ id: user.id })
+      .update({
+        failed_login_attempts: nextFailedAttempts,
+        locked_until: lockedUntil,
+        updated_at: new Date()
+      });
+
+    await recordAuditEvent({
+      userId: user.id,
+      action: 'UPDATE',
+      entityType: 'auth',
+      entityId: user.id,
+      oldValue: {
+        failed_login_attempts: user.failed_login_attempts || 0,
+        locked_until: user.locked_until ?? null
+      },
+      newValue: {
+        failed_login_attempts: nextFailedAttempts,
+        locked_until: lockedUntil?.toISOString() ?? null,
+        login_status: shouldLock ? 'locked' : 'failed'
+      },
+      req
     });
-
-  await recordAuditEvent({
-    userId: user.id,
-    action: 'UPDATE',
-    entityType: 'auth',
-    entityId: user.id,
-    oldValue: {
-      failed_login_attempts: user.failed_login_attempts || 0,
-      locked_until: user.locked_until ?? null
-    },
-    newValue: {
-      failed_login_attempts: nextFailedAttempts,
-      locked_until: lockedUntil?.toISOString() ?? null,
-      login_status: shouldLock ? 'locked' : 'failed'
-    },
-    req
-  });
+  } catch (error) {
+    console.error('[AUTH LOGIN] Failed to record failed login attempt', {
+      userId: user?.id,
+      error
+    });
+  }
 };
 
 // Register user
@@ -699,6 +713,12 @@ router.post('/bridge-token', authLimiter, asyncHandler(async (req: Request, res:
   const { id, email, role } = req.body;
   const normalizedRole = normalizeRole(role);
   const sharedSecret = req.header('X-Bridge-Token-Secret');
+  console.log('[AUTH BRIDGE] Bridge token request received', {
+    preferredId: id ?? null,
+    email: typeof email === 'string' ? normalizeEmail(email) : null,
+    normalizedRole,
+    hasSharedSecret: Boolean(sharedSecret)
+  });
 
   // Validate input
   if (!id || !email || !role) {
@@ -708,7 +728,18 @@ router.post('/bridge-token', authLimiter, asyncHandler(async (req: Request, res:
     });
   }
 
-  if (!sharedSecret || sharedSecret !== getBridgeSharedSecret()) {
+  let expectedSharedSecret: string;
+  try {
+    expectedSharedSecret = getBridgeSharedSecret();
+  } catch (error) {
+    console.error('[AUTH BRIDGE] Invalid bridge secret configuration', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Bridge token secret is not configured correctly on the backend'
+    });
+  }
+
+  if (!sharedSecret || sharedSecret !== expectedSharedSecret) {
     return res.status(403).json({
       success: false,
       error: 'הגישה ליצירת Bridge token נדחתה'
@@ -718,6 +749,12 @@ router.post('/bridge-token', authLimiter, asyncHandler(async (req: Request, res:
   const normalizedEmail = normalizeEmail(email);
   const resolvedUser = await resolveBridgeUser(id, normalizedEmail);
   const user = resolvedUser;
+  console.log('[AUTH BRIDGE] User resolution completed', {
+    normalizedEmail,
+    foundUser: Boolean(user),
+    resolvedUserId: user?.id ?? null,
+    resolvedRole: user ? normalizeRole(user.role) : null
+  });
 
   if (!user) {
     return res.status(404).json({
@@ -734,11 +771,23 @@ router.post('/bridge-token', authLimiter, asyncHandler(async (req: Request, res:
   }
 
   // Generate JWT token
-  const token = signBridgeToken({
-    id: isUuid(user.id) ? user.id : toActorUuid(user.id, user.email),
-    email: user.email,
-    role: normalizeRole(user.role)
-  });
+  let token: string;
+  try {
+    token = signBridgeToken({
+      id: isUuid(user.id) ? user.id : toActorUuid(user.id, user.email),
+      email: user.email,
+      role: normalizeRole(user.role)
+    });
+  } catch (error) {
+    console.error('[AUTH BRIDGE] Failed to sign bridge token', {
+      userId: user.id,
+      error
+    });
+    return res.status(500).json({
+      success: false,
+      error: 'Bridge token signing failed because JWT configuration is invalid'
+    });
+  }
 
   logAuth(`Bridge token created for: ${normalizedEmail} (${normalizeRole(user.role)})`);
   await recordAuditEvent({

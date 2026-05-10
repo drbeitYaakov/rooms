@@ -16,9 +16,17 @@ export async function POST() {
     }
 
     const sharedSecret = process.env.BRIDGE_TOKEN_SHARED_SECRET || process.env.NEXTAUTH_SECRET;
+    console.error('Bridge token route request context:', {
+      hasSessionUserId: Boolean(session.user.id),
+      email: session.user.email,
+      role: session.user.role,
+      hasBridgeSecret: Boolean(sharedSecret),
+      bridgeSecretLength: sharedSecret?.length ?? 0,
+    });
+
     if (!sharedSecret) {
       return NextResponse.json(
-        { success: false, error: 'אינטגרציית Bridge token אינה מוגדרת' },
+        { success: false, error: 'Bridge token integration is not configured on Vercel' },
         { status: 500 }
       );
     }
@@ -37,20 +45,32 @@ export async function POST() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorText = await response.text();
+      console.error('Bridge token backend error response:', {
+        status: response.status,
+        body: errorText
+      });
+
+      let errorMessage = 'Bridge token creation failed';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+
       return NextResponse.json(
-        { success: false, error: errorData.error || 'יצירת Bridge token נכשלה' },
+        { success: false, error: errorMessage },
         { status: response.status }
       );
     }
 
     const data = await response.json();
     return NextResponse.json(data);
-
   } catch (error) {
     console.error('Bridge token error:', error);
     return NextResponse.json(
-      { success: false, error: 'שגיאת שרת פנימית' },
+      { success: false, error: 'Internal bridge token route error' },
       { status: 500 }
     );
   }
