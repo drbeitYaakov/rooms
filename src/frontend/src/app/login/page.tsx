@@ -42,6 +42,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [validatedUserJson, setValidatedUserJson] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const isMfaStep = Boolean(mfaToken);
@@ -55,6 +56,7 @@ export default function LoginPage() {
 
     setIsLoading(true);
     setErrorMessage("");
+    let resolvedUserJson = validatedUserJson;
 
     try {
       if (!isMfaStep) {
@@ -78,13 +80,18 @@ export default function LoginPage() {
 
         if (loginPayload?.data?.mfaRequired && loginPayload?.data?.mfaToken) {
           setMfaToken(loginPayload.data.mfaToken);
+          setValidatedUserJson(null);
           return;
         }
+
+        resolvedUserJson = JSON.stringify(loginPayload?.data?.user ?? null);
+        setValidatedUserJson(resolvedUserJson);
       }
 
       const result = await signIn("credentials", {
         email,
         password,
+        userJson: resolvedUserJson || undefined,
         mfaCode: mfaCode || undefined,
         mfaToken: mfaToken || undefined,
         redirect: false,
@@ -179,6 +186,7 @@ export default function LoginPage() {
               onClick={() => {
                 setMfaToken(null);
                 setMfaCode("");
+                setValidatedUserJson(null);
                 setErrorMessage("");
               }}
               disabled={isLoading}
