@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 async function testManualScheduling() {
-  const baseURL = 'http://localhost:3001/api';
+  const baseURL = 'https://rooms-ma9h.onrender.com/api';
   
   // Test data for manual scheduling
   const testAssignment = {

@@ -13,7 +13,7 @@
         async function fetchAssignments() {
             try {
                 console.log('🔍 Fetching assignments...');
-                const response = await fetch('http://localhost:3001/api/assignments', {
+                const response = await fetch('https://rooms-ma9h.onrender.com/api/assignments', {
                     headers: {
                         'Authorization': 'Bearer fake-token-for-debug'
                     }
@@ -47,7 +47,7 @@
         async function fetchRooms() {
             try {
                 console.log('🔍 Fetching rooms...');
-                const response = await fetch('http://localhost:3001/api/rooms', {
+                const response = await fetch('https://rooms-ma9h.onrender.com/api/rooms', {
                     headers: {
                         'Authorization': 'Bearer fake-token-for-debug'
                     }

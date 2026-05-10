@@ -4,7 +4,7 @@ async function checkAllAssignmentsViaAPI() {
     console.log('🔍 Fetching all assignments via API...\n');
     
     // Get all rooms first
-    const roomsResponse = await fetch('http://localhost:3001/api/rooms');
+    const roomsResponse = await fetch('https://rooms-ma9h.onrender.com/api/rooms');
     if (!roomsResponse.ok) {
       throw new Error('Failed to fetch rooms');
     }
@@ -12,7 +12,7 @@ async function checkAllAssignmentsViaAPI() {
     console.log(`📊 Found ${rooms.length} rooms\n`);
     
     // Get all assignments
-    const assignmentsResponse = await fetch('http://localhost:3001/api/assignments');
+    const assignmentsResponse = await fetch('https://rooms-ma9h.onrender.com/api/assignments');
     if (!assignmentsResponse.ok) {
       throw new Error('Failed to fetch assignments');
     }

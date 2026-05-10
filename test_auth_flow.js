@@ -2,7 +2,7 @@
 
 const axios = require('axios');
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'https://rooms-ma9h.onrender.com/api';
 const FRONTEND_URL = 'http://localhost:3000';
 
 async function testAuthenticationFlow() {
@@ -11,7 +11,7 @@ async function testAuthenticationFlow() {
   try {
     // Step 1: Test backend health
     console.log('1. Testing Backend Health...');
-    const healthResponse = await axios.get('http://localhost:3001/health');
+    const healthResponse = await axios.get('https://rooms-ma9h.onrender.com/health');
     console.log('✅ Backend Health:', healthResponse.data.status);
 
     // Step 2: Create JWT token via bridge endpoint
@@ -56,7 +56,7 @@ async function testAuthenticationFlow() {
 
     console.log('\n🎉 All tests passed! Authentication system is working correctly.');
     console.log('\n📋 Summary:');
-    console.log('- Backend: Running on http://localhost:3001');
+    console.log('- Backend: Running on https://rooms-ma9h.onrender.com');
     console.log('- Frontend: Running on http://localhost:3000');
     console.log('- Authentication: JWT tokens working');
     console.log('- Database: Connected and operational');

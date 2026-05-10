@@ -5,7 +5,7 @@ async function testAssignmentsAPI() {
     
     // Try without auth first
     console.log('Testing without auth...');
-    const response1 = await fetch('http://localhost:3001/api/assignments');
+    const response1 = await fetch('https://rooms-ma9h.onrender.com/api/assignments');
     console.log('Response status:', response1.status);
     console.log('Response headers:', response1.headers);
     
@@ -21,7 +21,7 @@ async function testAssignmentsAPI() {
     
     // Try with basic auth
     console.log('\nTesting with basic auth...');
-    const response2 = await fetch('http://localhost:3001/api/assignments', {
+    const response2 = await fetch('https://rooms-ma9h.onrender.com/api/assignments', {
       headers: {
         'Authorization': 'Bearer test-token'
       }
