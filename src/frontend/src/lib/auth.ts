@@ -3,6 +3,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
 
+const buildAuthorizeError = (code: string, detail?: string) => {
+  const normalizedDetail = detail?.trim();
+  return normalizedDetail ? `${code}:${normalizedDetail}` : code;
+};
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -15,7 +20,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error(buildAuthorizeError("AUTH_MISSING_CREDENTIALS"));
         }
 
         try {
@@ -35,15 +40,17 @@ export const authOptions: NextAuthOptions = {
           if (!response.ok) {
             const responseText = await response.text();
             console.error("NextAuth authorize failed:", response.status, responseText);
-            return null;
+            throw new Error(buildAuthorizeError(`AUTH_${response.status}`, responseText));
           }
 
           const payload = await response.json();
           console.error("NextAuth authorize payload:", payload);
+
           if (payload?.data?.mfaRequired) {
             console.error("NextAuth authorize detected MFA requirement");
-            return null;
+            throw new Error(buildAuthorizeError("AUTH_MFA_REQUIRED"));
           }
+
           const user = payload?.data?.user;
           console.error("NextAuth authorize extracted user:", user);
 
@@ -52,7 +59,7 @@ export const authOptions: NextAuthOptions = {
               hasId: Boolean(user?.id),
               hasEmail: Boolean(user?.email)
             });
-            return null;
+            throw new Error(buildAuthorizeError("AUTH_INVALID_USER_PAYLOAD"));
           }
 
           return {
@@ -64,7 +71,9 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error) {
           console.error("NextAuth authorize error:", error);
-          return null;
+          throw error instanceof Error
+            ? error
+            : new Error(buildAuthorizeError("AUTH_REQUEST_FAILED"));
         }
       }
     })

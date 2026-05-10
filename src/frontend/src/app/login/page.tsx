@@ -5,6 +5,38 @@ import { signIn } from "next-auth/react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
 
+const getErrorMessage = (error: string | undefined, isMfaStep: boolean) => {
+  if (!error) {
+    return isMfaStep ? "קוד ה-MFA שגוי" : "פרטי ההתחברות שגויים";
+  }
+
+  if (error.startsWith("AUTH_401")) {
+    return isMfaStep ? "קוד ה-MFA שגוי" : "פרטי ההתחברות שגויים";
+  }
+
+  if (error.startsWith("AUTH_423")) {
+    return "החשבון נעול זמנית. נסי שוב מאוחר יותר.";
+  }
+
+  if (error.startsWith("AUTH_429")) {
+    return "בוצעו יותר מדי ניסיונות התחברות. נסי שוב בעוד כמה דקות.";
+  }
+
+  if (error.startsWith("AUTH_MFA_REQUIRED")) {
+    return "נדרש קוד אימות כדי להשלים את ההתחברות.";
+  }
+
+  if (error.startsWith("AUTH_INVALID_USER_PAYLOAD")) {
+    return "השרת החזיר פרטי משתמש לא תקינים.";
+  }
+
+  if (error.startsWith("AUTH_REQUEST_FAILED")) {
+    return "לא ניתן היה ליצור קשר עם השרת.";
+  }
+
+  return error;
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +48,11 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isLoading) {
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage("");
 
@@ -54,11 +91,14 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setErrorMessage(isMfaStep ? "קוד ה-MFA שגוי" : "פרטי ההתחברות שגויים");
-      } else {
-        window.location.href = "/";
+        console.error("NextAuth signIn error:", result.error);
+        setErrorMessage(getErrorMessage(result.error, isMfaStep));
+        return;
       }
+
+      window.location.href = "/";
     } catch (error) {
+      console.error("Login submit failed:", error);
       setErrorMessage("אירעה שגיאה");
     } finally {
       setIsLoading(false);
@@ -85,7 +125,7 @@ export default function LoginPage() {
                 placeholder="כתובת אימייל"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isMfaStep}
+                disabled={isMfaStep || isLoading}
               />
             </div>
             <div>
@@ -98,7 +138,7 @@ export default function LoginPage() {
                 placeholder="סיסמה"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isMfaStep}
+                disabled={isMfaStep || isLoading}
               />
             </div>
             {isMfaStep && (
@@ -114,6 +154,7 @@ export default function LoginPage() {
                   placeholder="קוד אימות בן 6 ספרות"
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
             )}
@@ -140,7 +181,8 @@ export default function LoginPage() {
                 setMfaCode("");
                 setErrorMessage("");
               }}
-              className="w-full text-sm text-gray-600 hover:text-gray-900"
+              disabled={isLoading}
+              className="w-full text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
             >
               חזרה
             </button>
