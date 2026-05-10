@@ -33,6 +33,8 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!response.ok) {
+            const responseText = await response.text();
+            console.error("NextAuth authorize failed:", response.status, responseText);
             return null;
           }
 

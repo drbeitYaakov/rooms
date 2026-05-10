@@ -31,7 +31,7 @@ export const generalLimiter = createRateLimiter(
 // Auth rate limiter (stricter)
 export const authLimiter = createRateLimiter(
   15 * 60 * 1000, // 15 minutes
-  5, // limit each IP to 5 auth requests per windowMs
+  20, // temporarily relaxed while production login flow issues are being resolved
   'Too many authentication attempts'
 );
 
