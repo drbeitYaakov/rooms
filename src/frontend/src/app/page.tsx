@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import { clearBackendTokenCache } from "@/lib/auth-backend-bridge";
 
 export default function HomePage() {
   const { data: session, status } = useSession();
@@ -31,7 +32,7 @@ export default function HomePage() {
   }, [session, status, router]);
 
   if (status === "loading") {
-    return <div>Loading...</div>;
+    return <div>טוען...</div>;
   }
 
   if (!session) {
@@ -60,7 +61,10 @@ export default function HomePage() {
                  session.user?.role === 'teacher' ? 'מורה' : 'משתמש'}
               </span>
               <button
-                onClick={() => signOut()}
+                onClick={() => {
+                  clearBackendTokenCache();
+                  void signOut();
+                }}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
                 התנתק

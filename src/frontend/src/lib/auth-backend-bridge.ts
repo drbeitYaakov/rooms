@@ -22,7 +22,6 @@ const BACKEND_TOKEN_STORAGE_KEY = 'rooms_backend_token';
 const BACKEND_TOKEN_USER_KEY_STORAGE_KEY = 'rooms_backend_token_user_key';
 
 let inMemoryToken: CachedBridgeToken | null = null;
-let tokenRequestPromise: Promise<string | null> | null = null;
 
 const buildUserKey = (session: SessionPayload | null) => {
   const id = session?.user?.id ?? '';
@@ -78,8 +77,17 @@ const persistToken = (cachedToken: CachedBridgeToken | null) => {
   window.localStorage.setItem(BACKEND_TOKEN_USER_KEY_STORAGE_KEY, cachedToken.userKey);
 };
 
-const clearCachedToken = () => {
+export const clearBackendTokenCache = () => {
   persistToken(null);
+};
+
+export const storeBackendToken = (token: string, userKey: string) => {
+  const expiresAt = parseJwtExpiry(token) ?? Date.now() + (8 * 60 * 60 * 1000);
+  persistToken({
+    token,
+    expiresAt,
+    userKey
+  });
 };
 
 const getCachedToken = (userKey: string) => {
@@ -110,7 +118,7 @@ const getCachedToken = (userKey: string) => {
   }
 
   if (inMemoryToken) {
-    clearCachedToken();
+    clearBackendTokenCache();
   }
 
   return null;
@@ -143,64 +151,16 @@ export const createBackendToken = async (session: SessionPayload, forceRefresh =
       return cachedToken.token;
     }
   } else {
-    clearCachedToken();
+    clearBackendTokenCache();
   }
 
   if (sessionBackendToken) {
-    const expiresAt = parseJwtExpiry(sessionBackendToken) ?? Date.now() + (8 * 60 * 60 * 1000);
-    persistToken({
-      token: sessionBackendToken,
-      expiresAt,
-      userKey
-    });
+    storeBackendToken(sessionBackendToken, userKey);
     return sessionBackendToken;
   }
 
-  if (tokenRequestPromise) {
-    return tokenRequestPromise;
-  }
-
-  tokenRequestPromise = (async () => {
-    try {
-      console.log('Creating backend token for session:', session);
-
-      const response = await fetch('/api/auth/bridge-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      console.log('Bridge token response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Bridge token error response:', errorText);
-        throw new Error(`Failed to create backend token: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      const expiresAt = parseJwtExpiry(data.token) ?? Date.now() + (23 * 60 * 60 * 1000);
-
-      persistToken({
-        token: data.token,
-        expiresAt,
-        userKey
-      });
-
-      console.log('Bridge token created successfully');
-      return data.token as string;
-    } catch (error) {
-      clearCachedToken();
-      console.error('Error creating token:', error);
-      return null;
-    } finally {
-      tokenRequestPromise = null;
-    }
-  })();
-
-  return tokenRequestPromise;
+  console.warn('No backend token available in session or cache for user:', userKey);
+  return null;
 };
 
 const buildHeaders = (token: string, headers?: HeadersInit) => {
@@ -226,7 +186,7 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
   let token = await createBackendToken(session);
 
   if (!token) {
-    throw new Error('Failed to create authentication token');
+    throw new Error('No backend authentication token available. Please sign in again.');
   }
 
   const executeRequest = (authToken: string) => {
@@ -241,11 +201,11 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
   let response = await executeRequest(token);
 
   if (response.status === 401) {
-    clearCachedToken();
+    clearBackendTokenCache();
     token = await createBackendToken(session, true);
 
     if (!token) {
-      throw new Error('Failed to refresh authentication token');
+      throw new Error('Failed to refresh backend authentication token. Please sign in again.');
     }
 
     response = await executeRequest(token);

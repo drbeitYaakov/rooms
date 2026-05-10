@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, ReactNode } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
+import { clearBackendTokenCache } from '@/lib/auth-backend-bridge';
 
 interface User {
   id: string;
@@ -52,11 +53,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     if (result?.error) {
-      throw new Error('Login failed');
+      throw new Error('ההתחברות נכשלה');
     }
   };
 
   const logout = () => {
+    clearBackendTokenCache();
     void signOut({ redirect: false });
   };
 
