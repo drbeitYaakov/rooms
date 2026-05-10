@@ -628,7 +628,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
           console.log(`✅ Room ${room.room_number} ${date} ${timeSlot}: OCCUPIED by ${specificAssignment.activity_type}`);
         } else {
           // Check if this is a homeroom and should have default occupancy
-          const isHomeroom = room.room_type.startsWith('CLASSROOM_');
+          const isHomeroom = typeof room.room_type === 'string' && room.room_type.startsWith('CLASSROOM_');
           const slotTimeInMinutes = slotHour * 60 + slotMinute;
           const homeroom = homeroomByRoomId.get(String(room.id));
           const resolvedDefault = homeroom
@@ -664,7 +664,9 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
               id: 'default-homeroom',
               study_group_name: 'כיתת אם',
               activity_type: 'לימודים',
-              grade: room.room_type.replace('CLASSROOM_', '').toUpperCase(),
+               grade: typeof room.room_type === 'string'
+                 ? room.room_type.replace('CLASSROOM_', '').toUpperCase()
+                 : '',
               start_time: resolvedDefault.start_time,
               end_time: resolvedDefault.end_time,
               student_count: 0,
@@ -803,7 +805,7 @@ router.get('/availability/:date', authMiddleware, asyncHandler(async (req: Authe
     let totalOccupiedHours = 0;
     
     // Add default homeroom occupancy if applicable
-    const isHomeroom = room.room_type.startsWith('CLASSROOM_');
+    const isHomeroom = typeof room.room_type === 'string' && room.room_type.startsWith('CLASSROOM_');
     if (isHomeroom) {
       const homeroom = homeroomByRoomId.get(String(room.id));
       const resolvedDefault = homeroom
