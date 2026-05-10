@@ -843,16 +843,16 @@ function scoreRoomForUnit(
     else if (category === 'other_homeroom') score += 850;
     else if (category === 'study') score += 500;
     else if (category === 'mamad') score += 250;
+    else if (category === 'room302') score += 90;
     else if (category === 'caravan') score += 80;
-    else if (category === 'room302') score += 20;
     else score += 0;
   } else {
     if (category === 'study') score += 900;
     else if (isSourceHomeroom) score += 700;
     else if (category === 'other_homeroom') score += 220;
     else if (category === 'mamad') score += 260;
+    else if (category === 'room302') score += 70;
     else if (category === 'caravan') score += 60;
-    else if (category === 'room302') score += 10;
     else score += 0;
   }
 
