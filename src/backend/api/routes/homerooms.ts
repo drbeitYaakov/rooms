@@ -346,6 +346,145 @@ async function createHomeroomAssignments(homeroom: any, createdBy: string) {
   }
 }
 
+async function reassignFutureHomeroomAssignments(
+  trx: any,
+  roomChanges: Array<{ homeroom_id: number; room_id: string }>
+) {
+  if (roomChanges.length === 0) {
+    return;
+  }
+
+  const homeroomIds = roomChanges.map((change) => change.homeroom_id);
+  const targetRoomIds = roomChanges.map((change) => change.room_id);
+  const targetRoomByHomeroomId = new Map(
+    roomChanges.map((change) => [String(change.homeroom_id), change.room_id])
+  );
+
+  const homerooms = await trx('homerooms')
+    .select('id', 'room_id', 'school_year')
+    .whereIn('id', homeroomIds);
+
+  if (homerooms.length !== homeroomIds.length) {
+    throw new Error('אחת או יותר מכיתות האם לא נמצאו');
+  }
+
+  const rooms = await trx('rooms')
+    .select('id')
+    .whereIn('id', targetRoomIds)
+    .andWhere({ is_active: true });
+
+  if (rooms.length !== targetRoomIds.length) {
+    throw new Error('אחד או יותר מחדרי היעד לא נמצאו');
+  }
+
+  const schoolYears = [...new Set(homerooms.map((homeroom: any) => homeroom.school_year))];
+  const conflictingHomerooms = await trx('homerooms')
+    .select('id', 'room_id')
+    .whereIn('school_year', schoolYears)
+    .whereIn('room_id', targetRoomIds)
+    .whereNotIn('id', homeroomIds)
+    .andWhere({ is_active: true });
+
+  if (conflictingHomerooms.length > 0) {
+    throw new Error('אחד או יותר מחדרי היעד כבר משויכים לכיתת אם אחרת');
+  }
+
+  const oldRoomIds = [...new Set(homerooms.map((homeroom: any) => String(homeroom.room_id)).filter(Boolean))];
+  const targetRoomByOldRoomId = new Map(
+    homerooms.map((homeroom: any) => [
+      String(homeroom.room_id),
+      targetRoomByHomeroomId.get(String(homeroom.id)) || String(homeroom.room_id)
+    ])
+  );
+
+  const affectedAssignments = await trx('assignments')
+    .select('*')
+    .where({ status: 'active' })
+    .andWhereRaw('DATE(date) >= CURRENT_DATE')
+    .andWhere((builder: any) => {
+      builder.where((inner: any) => {
+        inner
+          .where({ assignable_type: 'homeroom' })
+          .whereIn('assignable_id', homeroomIds.map(String));
+      });
+
+      if (oldRoomIds.length > 0) {
+        builder.orWhere((inner: any) => {
+          inner
+            .where({ assignable_type: 'study_group' })
+            .whereIn('room_id', oldRoomIds);
+        });
+      }
+    });
+
+  const affectedAssignmentIds = affectedAssignments.map((assignment: any) => String(assignment.id));
+  if (affectedAssignments.length === 0) {
+    return;
+  }
+
+  const assignmentUpdateTimestamp = new Date().toISOString();
+  const reassignedAssignments = affectedAssignments.map((assignment: any) => ({
+    ...assignment,
+    start_date: normalizeDateOnly(assignment.start_date),
+    end_date: normalizeDateOnly(assignment.end_date),
+    specific_date: normalizeDateOnly(assignment.specific_date),
+    date: normalizeDateOnly(assignment.date),
+    days_of_week: JSON.stringify(normalizeDaysOfWeekValue(assignment.days_of_week)),
+    time_slots: JSON.stringify(normalizeJsonArrayValue(assignment.time_slots)),
+    conflicts_with: assignment.conflicts_with == null
+      ? null
+      : JSON.stringify(normalizeJsonArrayValue(assignment.conflicts_with)),
+    room_id:
+      assignment.assignable_type === 'homeroom'
+        ? (targetRoomByHomeroomId.get(String(assignment.assignable_id)) || assignment.room_id)
+        : (targetRoomByOldRoomId.get(String(assignment.room_id)) || assignment.room_id),
+    updated_at: assignmentUpdateTimestamp
+  }));
+
+  const targetAssignmentRoomIds = [...new Set(reassignedAssignments.map((assignment: any) => String(assignment.room_id)))];
+  const targetAssignmentDates = [...new Set(
+    reassignedAssignments
+      .map((assignment: any) => normalizeDateOnly(assignment.date))
+      .filter((date: string | null): date is string => Boolean(date))
+  )];
+
+  const externalAssignmentsQuery = trx('assignments')
+    .select('id', 'room_id', 'date', 'start_time', 'end_time', 'assignable_type', 'assignable_id')
+    .where({ status: 'active' })
+    .whereIn('room_id', targetAssignmentRoomIds)
+    .whereIn('date', targetAssignmentDates);
+
+  if (affectedAssignmentIds.length > 0) {
+    externalAssignmentsQuery.whereNotIn('id', affectedAssignmentIds);
+  }
+
+  const externalAssignments = await externalAssignmentsQuery;
+  const externalAssignmentsBySlot = new Map(
+    externalAssignments.map((assignment: any) => [
+      `${assignment.room_id}:${normalizeDateOnly(assignment.date)}:${assignment.start_time}:${assignment.end_time}`,
+      assignment
+    ])
+  );
+
+  const conflictingAssignment = reassignedAssignments.find((assignment: any) =>
+    externalAssignmentsBySlot.has(
+      `${assignment.room_id}:${normalizeDateOnly(assignment.date)}:${assignment.start_time}:${assignment.end_time}`
+    )
+  );
+
+  if (conflictingAssignment) {
+    throw new HomeroomSwapConflictError(
+      `לא ניתן להשלים את החלפת החדרים כי בחדר היעד כבר קיים שיבוץ פעיל בתאריך ${conflictingAssignment.date} בין ${conflictingAssignment.start_time} ל-${conflictingAssignment.end_time}.`
+    );
+  }
+
+  await trx('assignments')
+    .whereIn('id', affectedAssignmentIds)
+    .delete();
+
+  await trx('assignments').insert(reassignedAssignments);
+}
+
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { grade_id } = req.query;
@@ -626,14 +765,33 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
         throw new Error('אחד או יותר מחדרי היעד כבר משויכים לכיתת אם אחרת');
       }
 
+      const oldRoomIds = [...new Set(homerooms.map((homeroom: any) => String(homeroom.room_id)).filter(Boolean))];
+      const targetRoomByOldRoomId = new Map(
+        homerooms.map((homeroom: any) => [
+          String(homeroom.room_id),
+          targetRoomByHomeroomId.get(String(homeroom.id)) || String(homeroom.room_id)
+        ])
+      );
+
       const affectedAssignments = await trx('assignments')
         .select('*')
-        .where({
-          assignable_type: 'homeroom',
-          status: 'active'
-        })
-        .whereIn('assignable_id', homeroomIds.map(String))
-        .andWhereRaw('DATE(date) >= CURRENT_DATE');
+        .where({ status: 'active' })
+        .andWhereRaw('DATE(date) >= CURRENT_DATE')
+        .andWhere((builder: any) => {
+          builder.where((inner: any) => {
+            inner
+              .where({ assignable_type: 'homeroom' })
+              .whereIn('assignable_id', homeroomIds.map(String));
+          });
+
+          if (oldRoomIds.length > 0) {
+            builder.orWhere((inner: any) => {
+              inner
+                .where({ assignable_type: 'study_group' })
+                .whereIn('room_id', oldRoomIds);
+            });
+          }
+        });
 
       const affectedAssignmentIds = affectedAssignments.map((assignment: any) => String(assignment.id));
       const assignmentUpdateTimestamp = new Date().toISOString();
@@ -648,7 +806,10 @@ router.post('/swap-rooms', authMiddleware, async (req: AuthenticatedRequest, res
         conflicts_with: assignment.conflicts_with == null
           ? null
           : JSON.stringify(normalizeJsonArrayValue(assignment.conflicts_with)),
-        room_id: targetRoomByHomeroomId.get(String(assignment.assignable_id)) || assignment.room_id,
+        room_id:
+          assignment.assignable_type === 'homeroom'
+            ? (targetRoomByHomeroomId.get(String(assignment.assignable_id)) || assignment.room_id)
+            : (targetRoomByOldRoomId.get(String(assignment.room_id)) || assignment.room_id),
         updated_at: assignmentUpdateTimestamp
       }));
 
@@ -1480,13 +1641,14 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
     const assignmentsQuery = await db.raw(`
       SELECT a.*, at.name as assignment_type_name, r.room_number
       FROM assignments a
-      JOIN assignment_types at ON a.assignment_type_id = at.id
-      JOIN rooms r ON a.room_id::text = r.id::text
-      WHERE a.room_id::text = (SELECT room_id::text FROM homerooms WHERE id = $1)
+      LEFT JOIN assignment_types at ON a.assignment_type_id = at.id
+      LEFT JOIN rooms r ON a.room_id::text = r.id::text
+      WHERE a.assignable_type = 'homeroom'
+        AND a.assignable_id::text = $1
         AND a.date >= CURRENT_DATE
-        AND a.status = 'scheduled'
+        AND a.status IN ('scheduled', 'active')
       ORDER BY a.date, a.start_time
-    `, [id]);
+    `, [String(id)]);
 
     const homeroom = homeroomQuery.rows[0];
     homeroom.display_name = getHomeroomName(homeroom);
@@ -1669,13 +1831,43 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
       }
     }
 
-    if (Object.keys(payload).length > 0) {
-      await db('homerooms')
-        .where({ id })
-        .update({
-          ...payload,
-          updated_at: db.fn.now()
+    const nextRoomId = payload.room_id ?? existingHomeroom.room_id;
+    const roomChanged = payload.room_id !== undefined && String(payload.room_id) !== String(existingHomeroom.room_id);
+
+    if (nextIsActive && nextRoomId) {
+      const duplicateRoomAssignment = await db('homerooms')
+        .where({
+          room_id: nextRoomId,
+          school_year: nextSchoolYear,
+          is_active: true
+        })
+        .whereNot({ id })
+        .first();
+
+      if (duplicateRoomAssignment) {
+        return res.status(400).json({
+          success: false,
+          error: 'החדר כבר משויך ככיתת אם בשנת הלימודים הזו'
         });
+      }
+    }
+
+    if (Object.keys(payload).length > 0) {
+      await db.transaction(async (trx) => {
+        await trx('homerooms')
+          .where({ id })
+          .update({
+            ...payload,
+            updated_at: trx.fn.now()
+          });
+
+        if (roomChanged) {
+          await reassignFutureHomeroomAssignments(trx, [{
+            homeroom_id: Number(id),
+            room_id: String(payload.room_id)
+          }]);
+        }
+      });
     }
 
     const updatedQuery = await db.raw(`
