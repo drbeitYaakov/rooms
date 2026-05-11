@@ -62,15 +62,16 @@ interface ActiveAcademicYearResponse {
   };
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
 const HIGH_SCHOOL_PE_ACTIVITY_TYPE = "high_school_pe";
 
 const DAY_OPTIONS = [
-  { label: "׳¨׳׳©׳•׳", value: 0 },
-  { label: "׳©׳ ׳™", value: 1 },
-  { label: "׳©׳׳™׳©׳™", value: 2 },
-  { label: "׳¨׳‘׳™׳¢׳™", value: 3 },
-  { label: "׳—׳׳™׳©׳™", value: 4 },
-  { label: "׳©׳™׳©׳™", value: 5 },
+  { label: "ראשון", value: 0 },
+  { label: "שני", value: 1 },
+  { label: "שלישי", value: 2 },
+  { label: "רביעי", value: 3 },
+  { label: "חמישי", value: 4 },
+  { label: "שישי", value: 5 },
 ];
 
 const ACTIVITY_OPTIONS = RECURRING_ROOM_REQUEST_ACTIVITY_OPTIONS;
@@ -130,7 +131,7 @@ export function RecurringSchedulePageContent({
   useEffect(() => {
     const loadActiveAcademicYear = async () => {
       try {
-        const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/academic-years/active");
+        const response = await authenticatedFetch(`${API_BASE_URL}/api/academic-years/active`);
         const data: ActiveAcademicYearResponse = await response.json();
 
         if (!data.success) {
@@ -143,7 +144,7 @@ export function RecurringSchedulePageContent({
       }
     };
 
-    loadActiveAcademicYear();
+    void loadActiveAcademicYear();
   }, []);
 
   useEffect(() => {
@@ -190,7 +191,7 @@ export function RecurringSchedulePageContent({
     setResult(null);
 
     try {
-      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/room-requests/groups", {
+      const response = await authenticatedFetch(`${API_BASE_URL}/api/room-requests/groups`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -210,7 +211,7 @@ export function RecurringSchedulePageContent({
       const data = await response.json();
 
       if (!data.success) {
-        setError(data.error || "׳™׳¦׳™׳¨׳× ׳”׳©׳™׳‘׳•׳¥ ׳”׳×׳“׳™׳¨ ׳ ׳›׳©׳׳”");
+        setError(data.error || "יצירת השיבוץ התדיר נכשלה");
         return;
       }
 
@@ -220,7 +221,7 @@ export function RecurringSchedulePageContent({
       }
     } catch (submitError) {
       console.error("Error creating recurring room request:", submitError);
-      setError("׳׳™׳¨׳¢׳” ׳©׳’׳™׳׳” ׳‘׳©׳׳™׳—׳× ׳‘׳§׳©׳× ׳”׳©׳™׳‘׳•׳¥");
+      setError("אירעה שגיאה בשליחת בקשת השיבוץ");
     } finally {
       setLoading(false);
     }
@@ -233,14 +234,14 @@ export function RecurringSchedulePageContent({
           <div className="w-full max-w-3xl rounded-[28px] bg-white p-6 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.45)] ring-1 ring-slate-200">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-lg font-semibold text-slate-900">׳‘׳•׳¦׳¢׳• ׳”׳¢׳‘׳¨׳•׳× ׳‘׳©׳™׳‘׳•׳¥ ׳”׳×׳“׳™׳¨</div>
+                <div className="text-lg font-semibold text-slate-900">בוצעו העברות בשיבוץ התדיר</div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  ׳›׳“׳™ ׳׳₪׳ ׳•׳× ׳׳§׳•׳ ׳׳—׳׳§ ׳׳”׳׳•׳₪׳¢׳™׳, ׳”׳׳¢׳¨׳›׳× ׳”׳¢׳‘׳™׳¨׳” ׳©׳™׳‘׳•׳¦׳™׳ ׳§׳™׳™׳׳™׳ ׳׳—׳“׳¨׳™׳ ׳—׳׳•׳₪׳™׳™׳.
-                  ׳—׳©׳•׳‘ ׳׳׳©׳¨ ׳©׳§׳¨׳׳× ׳׳× ׳”׳¢׳“׳›׳•׳.
+                  כדי לפנות מקום לחלק מהמופעים, המערכת העבירה שיבוצים קיימים לחדרים חלופיים.
+                  חשוב לאשר שקראת את העדכון.
                 </p>
               </div>
               <div className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
-                ׳ ׳“׳¨׳© ׳׳™׳©׳•׳¨
+                נדרש אישור
               </div>
             </div>
 
@@ -251,7 +252,7 @@ export function RecurringSchedulePageContent({
                   className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4"
                 >
                   <div className="text-sm font-semibold text-sky-950">
-                    {occurrence.date} | {occurrence.start_time}-{occurrence.end_time} | ׳—׳“׳¨ {occurrence.room_number}
+                    {occurrence.date} | {occurrence.start_time}-{occurrence.end_time} | חדר {occurrence.room_number}
                   </div>
                   <div className="mt-3 space-y-2">
                     {occurrence.relocated_assignments?.map((item, index) => (
@@ -259,8 +260,7 @@ export function RecurringSchedulePageContent({
                         key={`${item.assignmentId}-${index}`}
                         className="rounded-xl bg-white/80 px-3 py-2 text-sm text-sky-900 ring-1 ring-sky-100"
                       >
-                        {item.activityType}: {item.previousRoomNumber} ׳”׳•׳¢׳‘׳¨ ׳׳ {item.newRoomNumber} (
-                        {item.location})
+                        {item.activityType}: {item.previousRoomNumber} הועבר אל {item.newRoomNumber} ({item.location})
                       </div>
                     ))}
                   </div>
@@ -274,7 +274,7 @@ export function RecurringSchedulePageContent({
                 onClick={() => setShowRelocationModal(false)}
                 className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
-                ׳§׳¨׳׳×׳™ ׳•׳׳™׳©׳¨׳×׳™
+                קראתי ואישרתי
               </button>
             </div>
           </div>
@@ -285,16 +285,16 @@ export function RecurringSchedulePageContent({
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">׳©׳™׳‘׳•׳¥ ׳×׳“׳™׳¨ ׳׳§׳‘׳•׳¦׳” ׳—׳“׳©׳”</h2>
+              <h2 className="text-2xl font-bold text-slate-900">שיבוץ תדיר לקבוצה חדשה</h2>
               <p className="mt-2 text-sm text-slate-600">
-                ׳”׳׳¢׳¨׳›׳× ׳×׳—׳₪׳© ׳§׳•׳“׳ ׳׳× ׳”׳—׳“׳¨ ׳©׳׳×׳׳™׳ ׳׳׳¡׳₪׳¨ ׳”׳’׳“׳•׳ ׳‘׳™׳•׳×׳¨ ׳©׳ ׳”׳׳•׳₪׳¢׳™׳, ׳•׳׳– ׳×׳©׳׳™׳ ׳׳×
-                ׳©׳׳¨ ׳”׳׳•׳¢׳“׳™׳ ׳‘׳—׳“׳¨׳™׳ ׳—׳׳•׳₪׳™׳™׳ ׳׳₪׳™ ׳׳•׳×׳ ׳›׳׳׳™ ׳©׳™׳‘׳•׳¥ ׳©׳ ׳‘׳§׳©׳” ׳—׳“ ׳₪׳¢׳׳™׳×.
+                המערכת תחפש קודם את החדר שמתאים למספר הגדול ביותר של המופעים, ואז תשלים את
+                שאר המועדים בחדרים חלופיים לפי אותם כללי שיבוץ של בקשה חד פעמית.
               </p>
             </div>
             <div className="flex items-center gap-3">
               {embedded && (
                 <div className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">
-                  ׳׳¦׳‘ ׳₪׳¢׳™׳: ׳©׳™׳‘׳•׳¥ ׳׳×׳§׳“׳
+                  מצב פעיל: שיבוץ מתקדם
                 </div>
               )}
               <button
@@ -302,25 +302,25 @@ export function RecurringSchedulePageContent({
                 onClick={handleClose}
                 className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
-                {embedded ? "׳—׳–׳¨׳” ׳׳—׳“ ׳₪׳¢׳׳™" : "׳¡׳’׳•׳¨"}
+                {embedded ? "חזרה לחד פעמי" : "סגור"}
               </button>
             </div>
           </div>
 
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">׳©׳ ׳”׳§׳‘׳•׳¦׳”</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">שם הקבוצה</label>
               <input
                 type="text"
                 value={groupName}
                 onChange={(event) => setGroupName(event.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2.5"
-                placeholder="׳׳׳©׳: ׳”׳×׳¢׳׳׳•׳× ׳×׳™׳›׳•׳"
+                placeholder="למשל: התעמלות תיכון"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">׳¡׳•׳’ ׳₪׳¢׳™׳׳•׳×</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">סוג פעילות</label>
               <select
                 value={activityType}
                 onChange={(event) => handleActivityChange(event.target.value)}
@@ -335,36 +335,36 @@ export function RecurringSchedulePageContent({
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">׳©׳›׳‘׳”</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">שכבה</label>
               <select
                 value={grade}
                 onChange={(event) => setGrade(event.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2.5"
               >
-                <option value="">׳‘׳—׳¨׳• ׳©׳›׳‘׳”</option>
-                <option value="׳">׳'</option>
-                <option value="׳‘">׳‘'</option>
-                <option value="׳’">׳’'</option>
-                <option value="׳“">׳“'</option>
-                <option value="׳”">׳”'</option>
-                <option value="׳•">׳•'</option>
+                <option value="">בחרו שכבה</option>
+                <option value="א">א'</option>
+                <option value="ב">ב'</option>
+                <option value="ג">ג'</option>
+                <option value="ד">ד'</option>
+                <option value="ה">ה'</option>
+                <option value="ו">ו'</option>
               </select>
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">׳׳¡׳₪׳¨ ׳×׳׳׳™׳“׳™׳</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">מספר תלמידים</label>
               <input
                 type="number"
                 min="1"
                 value={studentCount}
                 onChange={(event) => setStudentCount(event.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2.5"
-                placeholder="׳׳¡׳₪׳¨ ׳×׳׳׳™׳“׳™׳"
+                placeholder="מספר תלמידים"
               />
             </div>
 
             <HebrewDateField
-              label="׳׳×׳׳¨׳™׳"
+              label="מתאריך"
               value={startDate}
               onChange={setStartDate}
               min={getToday()}
@@ -372,7 +372,7 @@ export function RecurringSchedulePageContent({
             />
 
             <HebrewDateField
-              label="׳¢׳“ ׳×׳׳¨׳™׳"
+              label="עד תאריך"
               value={endDate}
               onChange={setEndDate}
               min={startDate || getToday()}
@@ -382,8 +382,7 @@ export function RecurringSchedulePageContent({
 
           {isHighSchoolPe && (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              ׳”׳×׳¢׳׳׳•׳× ׳×׳™׳›׳•׳ ׳×׳©׳•׳‘׳¥ ׳׳”׳™׳•׳ ׳•׳¢׳“ ׳¡׳•׳£ ׳©׳ ׳× ׳”׳׳™׳׳•׳“׳™׳, ׳•׳¨׳§ ׳‘׳׳•׳׳ ׳׳ ׳₪׳ ׳•׳™ ׳׳• ׳‘׳¡׳₪׳¨׳™׳™׳” ׳׳
-              ׳₪׳ ׳•׳™׳”.
+              התעמלות תיכון תשובץ מהיום ועד סוף שנת הלימודים, ורק באולם אם פנוי או בספרייה אם פנויה.
             </div>
           )}
 
@@ -395,12 +394,12 @@ export function RecurringSchedulePageContent({
                 onChange={(event) => setNeedsProjector(event.target.checked)}
                 className="h-4 w-4 rounded border-slate-300"
               />
-              ׳ ׳“׳¨׳© ׳׳§׳¨׳
+              נדרש מקרן
             </label>
           </div>
 
           <div className="mt-8">
-            <h3 className="text-base font-semibold text-slate-900">׳™׳׳™ ׳©׳™׳‘׳•׳¥ ׳•׳©׳¢׳•׳×</h3>
+            <h3 className="text-base font-semibold text-slate-900">ימי שיבוץ ושעות</h3>
             <div className="mt-4 space-y-3">
               {DAY_OPTIONS.map((day) => (
                 <div key={day.value} className="rounded-2xl border border-slate-200 p-4">
@@ -436,7 +435,7 @@ export function RecurringSchedulePageContent({
 
           {selectedOccurrencesPreview.length > 0 && (
             <div className="mt-6 rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-              <div className="text-sm font-semibold text-sky-900">׳׳•׳₪׳¢׳™׳ ׳©׳‘׳•׳¢׳™׳™׳ ׳©׳ ׳‘׳—׳¨׳•</div>
+              <div className="text-sm font-semibold text-sky-900">מופעים שבועיים שנבחרו</div>
               <div className="mt-2 space-y-1 text-sm text-sky-800">
                 {selectedOccurrencesPreview.map((item) => (
                   <div key={item}>{item}</div>
@@ -457,7 +456,7 @@ export function RecurringSchedulePageContent({
               onClick={handleClose}
               className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
             >
-              {embedded ? "׳—׳–׳¨׳”" : "׳‘׳™׳˜׳•׳"}
+              {embedded ? "חזרה" : "ביטול"}
             </button>
             <button
               type="button"
@@ -465,28 +464,28 @@ export function RecurringSchedulePageContent({
               disabled={loading}
               className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              {loading ? "׳׳©׳‘׳¥..." : "׳‘׳¦׳¢׳™ ׳©׳™׳‘׳•׳¥ ׳×׳“׳™׳¨"}
+              {loading ? "משבץ..." : "בצעי שיבוץ תדיר"}
             </button>
           </div>
         </div>
 
         {result && (
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h3 className="text-xl font-bold text-slate-900">׳×׳•׳¦׳׳× ׳”׳©׳™׳‘׳•׳¥</h3>
+            <h3 className="text-xl font-bold text-slate-900">תוצאת השיבוץ</h3>
             <p className="mt-2 text-sm text-slate-700">{result.message}</p>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {result.requested_window && (
                 <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                  <div className="text-sm font-semibold text-slate-900">׳˜׳•׳•׳— ׳©׳‘׳™׳§׳©׳×</div>
+                  <div className="text-sm font-semibold text-slate-900">טווח שביקשת</div>
                   <div className="mt-1 text-sm text-slate-700">
-                    {result.requested_window.start_date} ׳¢׳“ {result.requested_window.end_date}
+                    {result.requested_window.start_date} עד {result.requested_window.end_date}
                   </div>
                 </div>
               )}
               {result.preferred_room && (
                 <div className="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-100">
-                  <div className="text-sm font-semibold text-emerald-900">׳—׳“׳¨ ׳׳•׳‘׳™׳ ׳‘׳¡׳“׳¨׳”</div>
+                  <div className="text-sm font-semibold text-emerald-900">חדר מוביל בסדרה</div>
                   <div className="mt-1 text-sm text-emerald-800">
                     {result.preferred_room.room_number} | {result.preferred_room.location}
                   </div>
@@ -506,19 +505,19 @@ export function RecurringSchedulePageContent({
                         {assignment.date} | {assignment.start_time}-{assignment.end_time}
                       </div>
                       <div className="mt-1 text-sm text-slate-700">
-                        ׳—׳“׳¨ <strong>{assignment.room_number}</strong> | {assignment.room_location}
+                        חדר <strong>{assignment.room_number}</strong> | {assignment.room_location}
                       </div>
                     </div>
                     {(assignment.relocated_assignments?.length || 0) > 0 && (
                       <div className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">
-                        ׳‘׳•׳¦׳¢׳” ׳”׳¢׳‘׳¨׳”
+                        בוצעה העברה
                       </div>
                     )}
                   </div>
 
                   {assignment.explanation && assignment.explanation.length > 0 && (
                     <div className="mt-4">
-                      <div className="text-sm font-semibold text-slate-900">׳׳׳” ׳ ׳‘׳—׳¨ ׳”׳—׳“׳¨ ׳”׳–׳”</div>
+                      <div className="text-sm font-semibold text-slate-900">למה נבחר החדר הזה</div>
                       <ul className="mt-2 space-y-2 text-sm text-slate-700">
                         {assignment.explanation.map((reason, index) => (
                           <li
@@ -534,7 +533,7 @@ export function RecurringSchedulePageContent({
 
                   {assignment.alerts && assignment.alerts.length > 0 && (
                     <div className="mt-4">
-                      <div className="text-sm font-semibold text-amber-900">׳”׳×׳¨׳׳•׳×</div>
+                      <div className="text-sm font-semibold text-amber-900">התראות</div>
                       <ul className="mt-2 space-y-2 text-sm text-amber-800">
                         {assignment.alerts.map((alertText, index) => (
                           <li
@@ -550,15 +549,14 @@ export function RecurringSchedulePageContent({
 
                   {assignment.relocated_assignments && assignment.relocated_assignments.length > 0 && (
                     <div className="mt-4">
-                      <div className="text-sm font-semibold text-sky-900">׳©׳™׳‘׳•׳¦׳™׳ ׳©׳”׳•׳¢׳‘׳¨׳•</div>
+                      <div className="text-sm font-semibold text-sky-900">שיבוצים שהועברו</div>
                       <ul className="mt-2 space-y-2 text-sm text-sky-800">
                         {assignment.relocated_assignments.map((item, index) => (
                           <li
                             key={`${assignment.assignment_id}-relocation-${index}`}
                             className="rounded-xl bg-sky-50 px-3 py-2 ring-1 ring-sky-100"
                           >
-                            {item.activityType}: {item.previousRoomNumber} ׳”׳•׳¢׳‘׳¨ ׳׳ {item.newRoomNumber} (
-                            {item.location})
+                            {item.activityType}: {item.previousRoomNumber} הועבר אל {item.newRoomNumber} ({item.location})
                           </li>
                         ))}
                       </ul>
