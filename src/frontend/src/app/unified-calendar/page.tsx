@@ -182,13 +182,28 @@ const getRoomTypeDisplay = (roomType: string) => {
   return types[roomType] || roomType;
 };
 
+const normalizeWingValue = (wing?: string | null): string => {
+  const normalized = String(wing || "").trim().toUpperCase();
+
+  if (normalized === "NEW" || normalized === "CENTER") {
+    return "new";
+  }
+
+  if (normalized === "OLD" || normalized === "LEFT" || normalized === "RIGHT") {
+    return "old";
+  }
+
+  return String(wing || "").trim().toLowerCase();
+};
+
 const getWingDisplay = (wing: string) => {
   const wings: Record<string, string> = {
     old: "אגף ישן",
     new: "אגף חדש",
   };
 
-  return wings[wing] || wing;
+  const normalizedWing = normalizeWingValue(wing);
+  return wings[normalizedWing] || wing;
 };
 
 const getDayColumnSurface = (index: number) =>
@@ -505,7 +520,7 @@ export default function UnifiedCalendarPage() {
       return false;
     }
 
-    if (filters.wing && room.wing !== filters.wing) {
+    if (filters.wing && normalizeWingValue(room.wing) !== filters.wing) {
       return false;
     }
 
