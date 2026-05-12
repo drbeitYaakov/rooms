@@ -111,7 +111,7 @@ export default function RoomsPage() {
 
   const isMusicRoomType = (roomType?: string | null) => {
     const normalized = String(roomType || '').trim().toUpperCase();
-    return normalized === 'MUSIC' || normalized === 'MUSIC_ROOM' || normalized === 'MUSIC_ROOM';
+    return normalized === 'MUSIC' || normalized === 'MUSIC_ROOM';
   };
 
   const musicRoomDayLabels: Record<number, string> = {
@@ -1013,6 +1013,7 @@ export default function RoomsPage() {
       'computer_lab': 'ממ"ד',
       'study_room': 'הקבצה',
       'ENGLISH_PAIRS': 'אנגלית זוגות',
+      'MUSIC': 'מוזיקה',
       'music_room': 'מוזיקה',
       'auditorium': 'אולם',
       'library': 'ספריה',
@@ -1166,7 +1167,7 @@ export default function RoomsPage() {
                     <option value="computer_lab">ממ"ד</option>
                     <option value="study_room">הקבצה</option>
                     <option value="ENGLISH_PAIRS">אנגלית זוגות</option>
-                    <option value="music_room">מוזיקה</option>
+                    <option value="MUSIC">מוזיקה</option>
                     <option value="auditorium">אולם</option>
                     <option value="library">ספריה</option>
                   </select>
