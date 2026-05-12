@@ -35,6 +35,7 @@ export default function AcademicYearsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activatingYearId, setActivatingYearId] = useState<string | null>(null);
+  const [archivingYearId, setArchivingYearId] = useState<string | null>(null);
 
   const isAdmin = session?.user?.role === "admin";
 
@@ -72,7 +73,7 @@ export default function AcademicYearsPage() {
     event.preventDefault();
 
     if (!form.year_name || !form.start_date || !form.end_date) {
-      alert("יש למלא שם שנה, תאריך התחלה ותאריך סיום");
+      alert("מלאי שם שנה, תאריך התחלה ותאריך סיום.");
       return;
     }
 
@@ -130,6 +131,7 @@ export default function AcademicYearsPage() {
 
   const handleArchiveToggle = async (year: AcademicYear) => {
     try {
+      setArchivingYearId(year.id);
       const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/academic-years/${year.id}`, {
         method: "PUT",
         headers: {
@@ -148,6 +150,8 @@ export default function AcademicYearsPage() {
     } catch (error: any) {
       console.error("Error updating academic year:", error);
       alert(error.message || "שגיאה בעדכון שנת הלימוד");
+    } finally {
+      setArchivingYearId(null);
     }
   };
 
@@ -163,7 +167,7 @@ export default function AcademicYearsPage() {
     <div className="min-h-screen bg-gray-50" dir="rtl">
       <main className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">ניהול שנות לימוד</h1>
+          <h1 className="text-3xl font-bold text-gray-900">שנות לימוד</h1>
           <p className="mt-2 text-sm text-gray-600">
             הפעלת שנה חדשה משכפלת רק שכבות, כיתות אם והקבצות. שיבוצים קיימים לא משתכפלים.
           </p>
@@ -171,12 +175,12 @@ export default function AcademicYearsPage() {
 
         {isAdmin && (
           <section className="mb-8 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">יצירת שנת לימוד</h2>
+            <h2 className="text-lg font-semibold text-gray-900">שנה חדשה</h2>
             <form className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4" onSubmit={handleCreateYear}>
               <input
                 value={form.year_name}
                 onChange={(event) => setForm((current) => ({ ...current, year_name: event.target.value }))}
-                placeholder="שם שנה, למשל תשפ״ז"
+                placeholder="שם השנה, למשל תשפ״ז"
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               <input
@@ -204,7 +208,7 @@ export default function AcademicYearsPage() {
 
         <section className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
           <div className="border-b border-gray-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">שנים קיימות</h2>
+            <h2 className="text-lg font-semibold text-gray-900">שנים במערכת</h2>
           </div>
 
           <div className="overflow-x-auto">
@@ -260,7 +264,8 @@ export default function AcademicYearsPage() {
                         {isAdmin && !year.is_active && (
                           <button
                             onClick={() => handleArchiveToggle(year)}
-                            className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-800 hover:bg-gray-200"
+                            disabled={archivingYearId === year.id}
+                            className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-800 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {year.is_archived ? "החזרה מארכיון" : "העברה לארכיון"}
                           </button>

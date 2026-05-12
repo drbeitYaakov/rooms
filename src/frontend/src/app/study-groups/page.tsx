@@ -4,6 +4,7 @@ import { Dispatch, FormEvent, SetStateAction, useEffect, useState } from "react"
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "../../lib/auth-backend-bridge";
 import { formatGregorianDate, formatHebrewDate } from "@/lib/hebrewDate";
+import ButtonLoadingContent from "@/components/ButtonLoadingContent";
 
 interface StudyGroup {
   id: string;
@@ -160,6 +161,7 @@ export default function StudyGroupsPage() {
   const [editingGroup, setEditingGroup] = useState<StudyGroup | null>(null);
   const [showInlineAddRow, setShowInlineAddRow] = useState(false);
   const [showGradeGroupDefinitions, setShowGradeGroupDefinitions] = useState(false);
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
   const showEditModal = false;
   const setShowEditModal = (_value: boolean) => {};
 
@@ -287,6 +289,7 @@ export default function StudyGroupsPage() {
     }
 
     try {
+      setDeletingGroupId(groupId);
       const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/study-groups/${groupId}`, {
         method: "DELETE",
       });
@@ -302,6 +305,8 @@ export default function StudyGroupsPage() {
     } catch (error) {
       console.error("Error deleting study group:", error);
       alert("אירעה שגיאה במחיקת ההקבצה");
+    } finally {
+      setDeletingGroupId(null);
     }
   };
 
@@ -475,7 +480,9 @@ export default function StudyGroupsPage() {
                       disabled={selectedGroups.length === 0 || isSchedulingSelectedGroups}
                       className="rounded-md bg-green-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
-                      {isSchedulingSelectedGroups ? "משבץ הקבצות..." : `שבץ הקבצות נבחרות (${selectedGroups.length})`}
+                      <ButtonLoadingContent loading={isSchedulingSelectedGroups} loadingText="משבץ הקבצות...">
+                        {`שבץ הקבצות נבחרות (${selectedGroups.length})`}
+                      </ButtonLoadingContent>
                     </button>
                     {/* <button onClick={handleExportCalendar} className="rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700">
                       ייצוא לוח שנה
@@ -580,8 +587,14 @@ export default function StudyGroupsPage() {
                               <button onClick={() => handleEditGroup(group.id)} className="ml-3 text-indigo-600 hover:text-indigo-900">
                                 ערוך
                               </button>
-                              <button onClick={() => handleDeleteGroup(group.id)} className="text-red-600 hover:text-red-900">
-                                מחק
+                              <button onClick={() => handleDeleteGroup(group.id)} disabled={deletingGroupId === group.id} className="text-red-600 hover:text-red-900 disabled:cursor-not-allowed disabled:opacity-60">
+                                <ButtonLoadingContent
+                                  loading={deletingGroupId === group.id}
+                                  loadingText="מוחק..."
+                                  spinnerClassName="border-red-300 border-t-red-700"
+                                >
+                                  מחק
+                                </ButtonLoadingContent>
                               </button>
                             </>
                           )}
@@ -1061,7 +1074,9 @@ function InlineEditGroupRow({
       <td className="px-6 py-4 align-top text-sm text-gray-500">
         <div className="flex flex-col items-start gap-2">
           <button type="button" onClick={() => void saveGroup()} disabled={isSaving || formData.name.trim() === "" || formData.student_count <= 0} className="rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400">
-            שמור
+            <ButtonLoadingContent loading={isSaving} loadingText="שומר...">
+              שמור
+            </ButtonLoadingContent>
           </button>
           <button type="button" onClick={onCancel} className="text-gray-600 hover:text-gray-800">
             ביטול
@@ -1211,7 +1226,9 @@ function InlineAddGroupRow({
       <td className="px-6 py-4 align-top text-sm text-gray-500">
         <div className="flex flex-col items-start gap-2">
           <button type="button" onClick={() => void saveGroup()} disabled={!canSave || isSaving} className="rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-400">
-            שמור
+            <ButtonLoadingContent loading={isSaving} loadingText="שומר...">
+              שמור
+            </ButtonLoadingContent>
           </button>
           <span>{isSaving ? "שומר..." : "השורה תישמר רק בלחיצה על שמור"}</span>
         </div>
@@ -1287,7 +1304,9 @@ function GradeGroupDefinitionsPanel({
                           className="rounded-md bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:bg-gray-400"
                           disabled={savingKey === draftKey}
                         >
-                          {savingKey === draftKey ? "שומר..." : "שמור"}
+                          <ButtonLoadingContent loading={savingKey === draftKey} loadingText="שומר...">
+                            שמור
+                          </ButtonLoadingContent>
                         </button>
                       </div>
                       <WeeklyScheduleEditor

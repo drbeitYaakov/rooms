@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "../../lib/auth-backend-bridge";
+import ButtonLoadingContent from "@/components/ButtonLoadingContent";
 
 interface UtilizationData {
   summary: {
@@ -56,6 +57,7 @@ export default function ReportsPage() {
   const [statisticsData, setStatisticsData] = useState<StatisticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [exportingKey, setExportingKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReportsData();
@@ -114,7 +116,10 @@ export default function ReportsPage() {
   };
 
   const handleExportReport = async (type: string, format: 'json' | 'csv' = 'json') => {
+    const actionKey = `${type}-${format}`;
+
     try {
+      setExportingKey(actionKey);
       const { startDate, endDate } = getDateRange(selectedPeriod);
       const response = await authenticatedFetch(
         `https://rooms-ma9h.onrender.com/api/reports/export?type=${type}&format=${format}&startDate=${startDate}&endDate=${endDate}`
@@ -149,6 +154,8 @@ export default function ReportsPage() {
     } catch (error) {
       console.error('Error exporting report:', error);
       alert('׳©׳’׳™׳׳” ׳‘׳™׳™׳¦׳•׳ ׳”׳“׳•׳—');
+    } finally {
+      setExportingKey((current) => (current === actionKey ? null : current));
     }
   };
 
@@ -229,9 +236,12 @@ export default function ReportsPage() {
                 </div>
                 <button 
                   onClick={() => handleExportReport('utilization')}
+                  disabled={exportingKey === "utilization-json"}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                 >
-                  ׳¦׳•׳¨ ׳“׳•׳— ׳׳₪׳•׳¨׳˜
+                  <ButtonLoadingContent loading={exportingKey === "utilization-json"} loadingText="מייצא...">
+                    ׳¦׳•׳¨ ׳“׳•׳— ׳׳₪׳•׳¨׳˜
+                  </ButtonLoadingContent>
                 </button>
               </div>
             </div>
@@ -254,9 +264,12 @@ export default function ReportsPage() {
                 )}
                 <button 
                   onClick={() => handleExportReport('conflicts')}
+                  disabled={exportingKey === "conflicts-json"}
                   className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                 >
-                  ׳¦׳₪׳” ׳‘׳§׳•׳ ׳₪׳׳™׳§׳˜׳™׳
+                  <ButtonLoadingContent loading={exportingKey === "conflicts-json"} loadingText="מייצא...">
+                    ׳¦׳₪׳” ׳‘׳§׳•׳ ׳₪׳׳™׳§׳˜׳™׳
+                  </ButtonLoadingContent>
                 </button>
               </div>
             </div>
@@ -328,15 +341,21 @@ export default function ReportsPage() {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleExportReport('statistics', 'json')}
+                      disabled={exportingKey === "statistics-json"}
                       className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm font-medium"
                     >
-                      JSON
+                      <ButtonLoadingContent loading={exportingKey === "statistics-json"} loadingText="מייצא...">
+                        JSON
+                      </ButtonLoadingContent>
                     </button>
                     <button 
                       onClick={() => handleExportReport('statistics', 'csv')}
+                      disabled={exportingKey === "statistics-csv"}
                       className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md text-sm font-medium"
                     >
-                      CSV
+                      <ButtonLoadingContent loading={exportingKey === "statistics-csv"} loadingText="מייצא...">
+                        CSV
+                      </ButtonLoadingContent>
                     </button>
                   </div>
                 </div>
@@ -345,15 +364,21 @@ export default function ReportsPage() {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleExportReport('utilization', 'json')}
+                      disabled={exportingKey === "utilization-json"}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium"
                     >
-                      JSON
+                      <ButtonLoadingContent loading={exportingKey === "utilization-json"} loadingText="מייצא...">
+                        JSON
+                      </ButtonLoadingContent>
                     </button>
                     <button 
                       onClick={() => handleExportReport('utilization', 'csv')}
+                      disabled={exportingKey === "utilization-csv"}
                       className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium"
                     >
-                      CSV
+                      <ButtonLoadingContent loading={exportingKey === "utilization-csv"} loadingText="מייצא...">
+                        CSV
+                      </ButtonLoadingContent>
                     </button>
                   </div>
                 </div>
@@ -362,15 +387,21 @@ export default function ReportsPage() {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleExportReport('conflicts', 'json')}
+                      disabled={exportingKey === "conflicts-json"}
                       className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium"
                     >
-                      JSON
+                      <ButtonLoadingContent loading={exportingKey === "conflicts-json"} loadingText="מייצא...">
+                        JSON
+                      </ButtonLoadingContent>
                     </button>
                     <button 
                       onClick={() => handleExportReport('conflicts', 'csv')}
+                      disabled={exportingKey === "conflicts-csv"}
                       className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium"
                     >
-                      CSV
+                      <ButtonLoadingContent loading={exportingKey === "conflicts-csv"} loadingText="מייצא...">
+                        CSV
+                      </ButtonLoadingContent>
                     </button>
                   </div>
                 </div>

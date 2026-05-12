@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "../../lib/auth-backend-bridge";
 import { getActivityTypeText as getDisplayActivityTypeText } from "@/lib/activityDisplay";
+import ButtonLoadingContent from "@/components/ButtonLoadingContent";
 
 interface RoomStatus {
   room_id: string;
@@ -55,6 +56,8 @@ export default function RoomsPage() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [roomStatuses, setRoomStatuses] = useState<RoomStatus[]>([]);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
   const [statusFilters, setStatusFilters] = useState({
     room_type: '',
     wing: '',
@@ -63,14 +66,14 @@ export default function RoomsPage() {
   });
 
   useEffect(() => {
-    fetchRooms();
-    fetchGrades();
-    fetchRoomStatus();
+    void fetchRooms();
+    void fetchGrades();
+    void fetchRoomStatus();
     
     // Set up interval for real-time updates
     const interval = setInterval(() => {
       setCurrentTime(new Date());
-      fetchRoomStatus();
+      void fetchRoomStatus(true);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -82,8 +85,11 @@ export default function RoomsPage() {
   console.log('User role:', session?.user?.role);
   console.log('Is admin:', isAdmin);
 
-  const fetchRoomStatus = async () => {
+  const fetchRoomStatus = async (silent = false) => {
     try {
+      if (silent) {
+        setRefreshingStatus(true);
+      }
       const today = new Date().toISOString().split('T')[0];
       
       const params = new URLSearchParams({
@@ -103,6 +109,10 @@ export default function RoomsPage() {
       }
     } catch (error) {
       console.error('Error fetching room status:', error);
+    } finally {
+      if (silent) {
+        setRefreshingStatus(false);
+      }
     }
   };
 
@@ -406,7 +416,7 @@ export default function RoomsPage() {
     
     cancelBtn.addEventListener('click', closeModal);
     
-    addBtn.addEventListener('click', () => {
+    addBtn.addEventListener('click', async () => {
       const roomNumber = roomNumberInput.value.trim();
       const capacity = parseInt(capacityInput.value);
       const floor = parseInt(floorInput.value);
@@ -418,9 +428,19 @@ export default function RoomsPage() {
         alert('אנא מלא את כל השדות הנדרשים');
         return;
       }
-      
-      addRoom(roomNumber, capacity, roomType, floor, wing, hasProjector);
-      closeModal();
+
+      addBtn.disabled = true;
+      addBtn.textContent = 'מוסיף...';
+
+      try {
+        const wasAdded = await addRoom(roomNumber, capacity, roomType, floor, wing, hasProjector);
+        if (wasAdded) {
+          closeModal();
+        }
+      } finally {
+        addBtn.disabled = false;
+        addBtn.textContent = 'הוסף חדר';
+      }
     });
     
     // Close modal when clicking outside
@@ -468,7 +488,7 @@ export default function RoomsPage() {
     hasProjector: boolean = false,
     assignAsHomeroom: boolean = false,
     homeroomAssignments: Array<{gradeId: string, classNumber: number, maxStudents: number, schoolYear: number}> = []
-  ) => {
+  ): Promise<boolean> => {
     try {
       const response = await authenticatedFetch('https://rooms-ma9h.onrender.com/api/rooms', {
         method: 'POST',
@@ -497,7 +517,8 @@ export default function RoomsPage() {
           message += ` נוצרו גם ${homeroomCount} כיתות אם.`;
         }
         alert(message);
-        fetchRooms(); // Refresh list
+        await fetchRooms(); // Refresh list
+        return true;
       } else {
         alert(`שגיאה: ${data.error}`);
       }
@@ -505,6 +526,8 @@ export default function RoomsPage() {
       console.error('Error adding room:', error);
       alert('אירעה שגיאה בהוספת החדר');
     }
+
+    return false;
   };
 
   const handleEditRoom = (roomId: string) => {
@@ -573,7 +596,7 @@ export default function RoomsPage() {
     
     cancelBtn.addEventListener('click', closeEditDialog);
     
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
       const newCapacity = parseInt(capacityInput.value);
       const hasProjector = hasProjectorCheckbox.checked;
       
@@ -581,12 +604,22 @@ export default function RoomsPage() {
         alert('אנא הכנס תכולה חוקית');
         return;
       }
-      
-      updateRoom(roomId, { 
-        capacity: newCapacity,
-        has_projector: hasProjector 
-      });
-      closeEditDialog();
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'שומר...';
+
+      try {
+        const wasUpdated = await updateRoom(roomId, { 
+          capacity: newCapacity,
+          has_projector: hasProjector 
+        });
+        if (wasUpdated) {
+          closeEditDialog();
+        }
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'שמור';
+      }
     });
     
     // Close dialog when clicking outside
@@ -597,7 +630,7 @@ export default function RoomsPage() {
     });
   };
 
-  const updateRoom = async (roomId: string, updates: any) => {
+  const updateRoom = async (roomId: string, updates: any): Promise<boolean> => {
     try {
       const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/rooms/${roomId}`, {
         method: 'PUT',
@@ -608,7 +641,8 @@ export default function RoomsPage() {
       
       if (data.success) {
         alert('חדר עודכן בהצלחה!');
-        fetchRooms(); // Refresh list
+        await fetchRooms(); // Refresh list
+        return true;
       } else {
         alert(`שגיאה: ${data.error}`);
       }
@@ -616,6 +650,8 @@ export default function RoomsPage() {
       console.error('Error updating room:', error);
       alert('אירעה שגיאה בעדכון החדר');
     }
+
+    return false;
   };
 
   const handleDeleteRoom = (roomId: string) => {
@@ -626,6 +662,7 @@ export default function RoomsPage() {
 
   const deleteRoom = async (roomId: string) => {
     try {
+      setDeletingRoomId(roomId);
       const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/rooms/${roomId}`, {
         method: 'DELETE',
       });
@@ -634,13 +671,15 @@ export default function RoomsPage() {
       
       if (data.success) {
         alert('חדר נמחק בהצלחה!');
-        fetchRooms(); // Refresh list
+        await fetchRooms(); // Refresh list
       } else {
         alert(`שגיאה: ${data.error}`);
       }
     } catch (error) {
       console.error('Error deleting room:', error);
       alert('אירעה שגיאה במחיקת החדר');
+    } finally {
+      setDeletingRoomId(null);
     }
   };
 
@@ -811,10 +850,13 @@ export default function RoomsPage() {
                     </div>
                   </div>
                   <button
-                    onClick={fetchRoomStatus}
-                    className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
+                    onClick={() => void fetchRoomStatus(true)}
+                    disabled={refreshingStatus}
+                    className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    רענן
+                    <ButtonLoadingContent loading={refreshingStatus} loadingText="מרענן...">
+                      רענן
+                    </ButtonLoadingContent>
                   </button>
                 </div>
 
@@ -1064,9 +1106,16 @@ export default function RoomsPage() {
                                 </button>
                                 <button 
                                   onClick={() => handleDeleteRoom(room.id)}
-                                  className="text-red-600 hover:text-red-900"
+                                  disabled={deletingRoomId === room.id}
+                                  className="text-red-600 hover:text-red-900 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                  מחק
+                                  <ButtonLoadingContent
+                                    loading={deletingRoomId === room.id}
+                                    loadingText="מוחק..."
+                                    spinnerClassName="border-red-300 border-t-red-700"
+                                  >
+                                    מחק
+                                  </ButtonLoadingContent>
                                 </button>
                               </>
                             )}

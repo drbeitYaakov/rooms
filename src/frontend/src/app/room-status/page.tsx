@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "../../lib/auth-backend-bridge";
+import ButtonLoadingContent from "@/components/ButtonLoadingContent";
 
 interface RoomStatus {
   room_id: string;
@@ -42,20 +43,25 @@ export default function RoomStatusPage() {
     status: ''
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchRoomStatus();
+    void fetchRoomStatus();
     const interval = setInterval(() => {
       setCurrentTime(new Date());
-      fetchRoomStatus();
+      void fetchRoomStatus(true);
     }, 30000); // Update every 30 seconds
 
     return () => clearInterval(interval);
   }, [filters]);
 
-  const fetchRoomStatus = async () => {
+  const fetchRoomStatus = async (silent = false) => {
     try {
-      setLoading(true);
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const today = new Date().toISOString().split('T')[0];
       
       const params = new URLSearchParams({
@@ -76,7 +82,11 @@ export default function RoomStatusPage() {
     } catch (error) {
       console.error('Error fetching room status:', error);
     } finally {
-      setLoading(false);
+      if (silent) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -284,10 +294,13 @@ export default function RoomStatusPage() {
             </div>
 
             <button
-              onClick={fetchRoomStatus}
-              className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
+              onClick={() => void fetchRoomStatus(true)}
+              disabled={refreshing}
+              className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              רענן
+              <ButtonLoadingContent loading={refreshing} loadingText="מרענן...">
+                רענן
+              </ButtonLoadingContent>
             </button>
           </div>
         </div>
