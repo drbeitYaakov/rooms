@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import { randomUUID } from 'crypto';
+import { v5 as uuidv5 } from 'uuid';
 import { formatAcademicYearDate, getActiveAcademicYear } from './academicYears';
 
 export const MUSIC_ROOM_DEFAULT_SETTINGS_KEY = 'music_room_default_schedule';
@@ -7,6 +8,7 @@ export const MUSIC_ROOM_BLOCK_ASSIGNABLE_TYPE = 'room_block';
 export const MUSIC_ROOM_BLOCK_ACTIVITY_TYPE = 'music_room_block';
 export const MUSIC_ROOM_SCHEDULE_DAYS = [0, 1, 2, 3, 4, 5] as const;
 export const MUSIC_ROOM_BLOCK_TITLE = 'חדר מוזיקה תפוס';
+const USER_ID_NAMESPACE = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
 
 export interface MusicRoomDaySchedule {
   day_of_week: number;
@@ -297,6 +299,19 @@ const buildMusicRoomTimeSlots = (startTime: string, endTime: string, sourceSetti
     ...(sourceSettingId ? { source_setting_id: sourceSettingId } : {})
   }]);
 
+const isUuid = (value: unknown): boolean =>
+  typeof value === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+const toActorUuid = (value: unknown, fallback?: unknown): string => {
+  if (isUuid(value)) {
+    return value as string;
+  }
+
+  const source = String(value || fallback || '').trim();
+  return uuidv5(source || 'system-user', USER_ID_NAMESPACE);
+};
+
 const resolveActiveUserId = async (trx: Knex | Knex.Transaction): Promise<string | null> => {
   const user = await trx('users')
     .select('id')
@@ -304,12 +319,12 @@ const resolveActiveUserId = async (trx: Knex | Knex.Transaction): Promise<string
     .orderBy('created_at', 'asc')
     .first();
 
-  return user?.id ? String(user.id) : null;
+  return user?.id ? toActorUuid(user.id) : null;
 };
 
 const getCreatedBy = async (trx: Knex | Knex.Transaction, createdBy?: string | null) => {
   if (createdBy && createdBy.trim() !== '') {
-    return createdBy;
+    return toActorUuid(createdBy);
   }
 
   return resolveActiveUserId(trx);
