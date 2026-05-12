@@ -927,14 +927,14 @@ export default function UnifiedCalendarPage() {
                                                 assignmentId: String(assignment.id),
                                               });
                                             }}
-                                            className={`absolute flex items-center rounded-full border px-2 text-[10px] font-semibold shadow-sm transition hover:brightness-[0.98] ${getActivityTypeColor(
+                                            className={`absolute flex items-center rounded-full border-2 px-2.5 text-[10px] font-semibold shadow-[0_8px_18px_-12px_rgba(15,23,42,0.55)] transition hover:brightness-[0.99] ${getActivityTypeColor(
                                               assignment.activity_type,
-                                            )} ${isSelectedAssignment ? "ring-2 ring-sky-300 ring-offset-1" : ""}`}
+                                            )} ${isSelectedAssignment ? "ring-2 ring-sky-300 ring-offset-2" : ""}`}
                                             style={{
                                               left: `${position.left}%`,
                                               width: `${position.width}%`,
                                               top: `${0.35 + lane * (ASSIGNMENT_BAR_HEIGHT_REM + ASSIGNMENT_LANE_GAP_REM)}rem`,
-                                              height: `${ASSIGNMENT_BAR_HEIGHT_REM}rem`,
+                                              height: `${ASSIGNMENT_BAR_HEIGHT_REM + 0.08}rem`,
                                               zIndex: 10 + lane,
                                             }}
                                             title={`${label} (${assignment.start_time}-${assignment.end_time})`}
