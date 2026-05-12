@@ -1155,8 +1155,7 @@ export default function RoomsPage() {
                     </ButtonLoadingContent>
                   </button>
                 </div>
-
-                {/* Status Filters */}
+                {/*
                 <div className="flex items-center gap-2 mb-4">
                   <select
                     value={statusFilters.room_type}
@@ -1205,6 +1204,7 @@ export default function RoomsPage() {
                     <option value="between_classes">בין שיעורים</option>
                   </select>
                 </div>
+                */}
 
                 {/* Status Summary */}
                 <div className="grid grid-cols-4 gap-2 mb-4">

@@ -372,7 +372,40 @@ export default function ManualAssignmentPage() {
               </form>
             </div>
 
-          
+            {/* <div className="rounded-lg bg-white p-6 shadow">
+              <h2 className="mb-4 text-lg font-semibold">שיבוצים קיימים</h2>
+              <div className="max-h-96 space-y-2 overflow-y-auto">
+                {assignments.length === 0 ? (
+                  <p className="text-gray-500">אין שיבוצים קיימים</p>
+                ) : (
+                  assignments.map((assignment) => (
+                    <div key={assignment.id} className="rounded-md border border-gray-200 p-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {assignment.title || getActivityTypeText(assignment.activity_type || "")}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {formatHebrewDate(assignment.date, { includeWeekday: true }) || assignment.date} |{" "}
+                            {assignment.start_time} - {assignment.end_time}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (confirm("למחוק שיבוץ זה?")) {
+                              // TODO: Implement delete functionality
+                            }
+                          }}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          מחק
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div> */}
           </div>
         </div>
       </div>
