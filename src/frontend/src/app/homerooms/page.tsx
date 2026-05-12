@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "../../lib/auth-backend-bridge";
 import HebrewDateField from "../../components/HebrewDateField";
+import ButtonLoadingContent from "@/components/ButtonLoadingContent";
 
 interface Homeroom {
   id: number;
@@ -165,6 +167,9 @@ interface SpecialScheduleCurrentState {
 
 type TabKey = "homerooms" | "fixed-times" | "special-times" | "history";
 
+const isTabKey = (value: string | null): value is TabKey =>
+  value === "homerooms" || value === "fixed-times" || value === "special-times" || value === "history";
+
 const getToday = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -293,6 +298,7 @@ const validateSpecialScheduleAgainstBase = (
 
 export default function HomeroomsPage() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const canManage = session?.user?.role === "admin" || session?.user?.role === "grade_coordinator";
   const [activeTab, setActiveTab] = useState<TabKey>("homerooms");
   const [loading, setLoading] = useState(true);
@@ -335,10 +341,21 @@ export default function HomeroomsPage() {
   const [specialScheduleBase, setSpecialScheduleBase] = useState<WeeklyFormSlot[]>(buildDefaultWeeklySchedule());
   const [specialScheduleSourceLabel, setSpecialScheduleSourceLabel] = useState("מצב נוכחי לפי ברירת המחדל של המערכת");
   const [specialScheduleStateLoading, setSpecialScheduleStateLoading] = useState(false);
+  const [isSwappingRooms, setIsSwappingRooms] = useState(false);
+  const [assigningTeacherId, setAssigningTeacherId] = useState<number | null>(null);
+  const [deletingHomeroomId, setDeletingHomeroomId] = useState<number | null>(null);
+  const [isExportingUtilizationReport, setIsExportingUtilizationReport] = useState(false);
 
   useEffect(() => {
     void Promise.all([loadActiveAcademicYear(), loadAcademicYears(), loadHistorySchoolYears(), loadHomerooms(), loadGrades(), loadDefaults()]).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (isTabKey(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!selectedHistorySchoolYear) {
@@ -815,7 +832,8 @@ export default function HomeroomsPage() {
       alert("יש לבחור לפחות כיתה אחת עם חדר יעד שונה");
       return;
     }
-
+    try {
+      setIsSwappingRooms(true);
     const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/swap-rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -826,9 +844,11 @@ export default function HomeroomsPage() {
       alert(`שגיאה: ${data.error}`);
       return;
     }
-
     setShowSwapModal(false);
     await Promise.all([loadHomerooms(), loadDefaults()]);
+    } finally {
+      setIsSwappingRooms(false);
+    }
   };
 
   const handleAddHomeroom = async () => {
@@ -914,19 +934,25 @@ export default function HomeroomsPage() {
     if (!confirmed) {
       return;
     }
-
+    try {
+      setDeletingHomeroomId(id);
     const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/${id}`, { method: "DELETE" });
     const data = await response.json();
     if (!data.success) {
-      alert(`׳©׳’׳™׳׳”: ${data.error}`);
+      alert(`שגיאה: ${data.error}`);
       return;
     }
     await Promise.all([loadHomerooms(), loadDefaults()]);
+    } finally {
+      setDeletingHomeroomId(null);
+    }
   };
 
   const handleAssignTeacher = async (id: number) => {
     const teacherId = prompt("מזהה מורה:");
     if (!teacherId) return;
+    try {
+      setAssigningTeacherId(id);
     const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/homerooms/${id}/assign-teacher`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -938,9 +964,14 @@ export default function HomeroomsPage() {
       return;
     }
     await loadHomerooms();
+    } finally {
+      setAssigningTeacherId(null);
+    }
   };
 
   const handleUtilizationReport = async () => {
+    try {
+      setIsExportingUtilizationReport(true);
     const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/utilization-report", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -968,6 +999,9 @@ export default function HomeroomsPage() {
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
+    } finally {
+      setIsExportingUtilizationReport(false);
+    }
   };
 
   const saveGradeDefault = async () => {
@@ -1031,7 +1065,7 @@ export default function HomeroomsPage() {
     });
     const data = await response.json();
     if (!data.success) {
-      alert(`׳©׳’׳™׳׳”: ${data.error}`);
+      alert(`שגיאה: ${data.error}`);
       return;
     }
 
@@ -1055,7 +1089,7 @@ export default function HomeroomsPage() {
     });
     const data = await response.json();
     if (!data.success) {
-      alert(`׳©׳’׳™׳׳”: ${data.error}`);
+      alert(`שגיאה: ${data.error}`);
       return;
     }
 
@@ -1087,8 +1121,8 @@ export default function HomeroomsPage() {
         ) : (
           <>
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">ניהול כיתות אם ושכבות</h1>
-              <p className="text-gray-600">צפייה, ניהול והגדרת זמנים קבועים לכיתות אם</p>
+              <h1 className="text-2xl font-bold text-gray-900">כיתות אם ושכבות</h1>
+              <p className="text-gray-600">ניהול כיתות אם, שכבות וזמנים קבועים.</p>
             </div>
 
             <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -1114,7 +1148,7 @@ export default function HomeroomsPage() {
                       <button onClick={() => void openSwapModal()} className="rounded-md bg-amber-600 px-4 py-3 text-sm font-medium text-white">החלפת חדרים</button>
                       <button onClick={() => setShowAddModal(true)} className="rounded-md bg-indigo-600 px-4 py-3 text-sm font-medium text-white">הוסף כיתת אם</button>
                       <button onClick={() => { window.location.href = "/grades"; }} className="rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white">ניהול שכבות</button>
-                      <button onClick={() => void handleUtilizationReport()} className="rounded-md bg-green-600 px-4 py-3 text-sm font-medium text-white">דוח תפוסה</button>
+                      <button onClick={() => void handleUtilizationReport()} disabled={isExportingUtilizationReport} className="rounded-md bg-green-600 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"><ButtonLoadingContent loading={isExportingUtilizationReport} loadingText="מייצא...">דוח תפוסה</ButtonLoadingContent></button>
                     </div>
                   </div>
                 )}
@@ -1142,7 +1176,7 @@ export default function HomeroomsPage() {
                             <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                               {canManage && (
                                 <div className="flex gap-3">
-                                  {!homeroom.teacher_name && <button onClick={() => void handleAssignTeacher(homeroom.id)} className="text-blue-600">הקצה מורה</button>}
+                                  {!homeroom.teacher_name && <button onClick={() => void handleAssignTeacher(homeroom.id)} disabled={assigningTeacherId === homeroom.id} className="text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"><ButtonLoadingContent loading={assigningTeacherId === homeroom.id} loadingText="שומר..." spinnerClassName="border-blue-300 border-t-blue-700">הקצה מורה</ButtonLoadingContent></button>}
                                   <button onClick={async () => {
                                     setEditingHomeroom(homeroom);
                                     setSelectedGrade(homeroom.grade_id || "");
@@ -1151,7 +1185,7 @@ export default function HomeroomsPage() {
                                     setShowAddModal(true);
                                     if (homeroom.grade_id) await loadFilteredRooms(homeroom.grade_id);
                                   }} className="text-indigo-600">ערוך</button>
-                                  <button onClick={() => void handleDeleteHomeroom(homeroom.id)} className="text-red-600">מחק</button>
+                                  <button onClick={() => void handleDeleteHomeroom(homeroom.id)} disabled={deletingHomeroomId === homeroom.id} className="text-red-600 disabled:cursor-not-allowed disabled:opacity-60"><ButtonLoadingContent loading={deletingHomeroomId === homeroom.id} loadingText="מוחק..." spinnerClassName="border-red-300 border-t-red-700">מחק</ButtonLoadingContent></button>
                                 </div>
                               )}
                             </td>
@@ -1436,8 +1470,8 @@ export default function HomeroomsPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-6 shadow">
                   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <h3 className="text-lg font-medium text-gray-900">צפייה בהיסטוריית כיתות אם ושיבוצים</h3>
-                      <p className="mt-1 text-sm text-gray-600">תצוגת קריאה בלבד של כיתות אם ושיבוציהן לפי שנת לימוד.</p>
+                      <h3 className="text-lg font-medium text-gray-900">היסטוריית כיתות אם ושיבוצים</h3>
+                      <p className="mt-1 text-sm text-gray-600">תצוגה לקריאה בלבד לפי שנת לימוד.</p>
                     </div>
                     <div className="w-full md:w-72">
                       <label className="mb-2 block text-sm font-medium text-gray-700">שנת לימוד</label>
@@ -1551,7 +1585,7 @@ export default function HomeroomsPage() {
       {showSwapModal && (
         <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-gray-600 bg-opacity-50">
           <div className="relative top-20 mx-auto w-[48rem] rounded-md border bg-white p-5 shadow-lg">
-            <h3 className="mb-4 text-lg font-medium text-gray-900">החלפת חדרים לכיתות אם</h3>
+            <h3 className="mb-4 text-lg font-medium text-gray-900">החלפת חדרים</h3>
             <div className="max-h-[28rem] space-y-3 overflow-y-auto">
               {homerooms.map((homeroom) => (
                 <div key={homeroom.id} className="grid grid-cols-[1.3fr_1fr_1.2fr] items-center gap-3 rounded-md border border-gray-200 p-3">
@@ -1588,7 +1622,8 @@ export default function HomeroomsPage() {
               </button>
               <button
                 onClick={() => void handleSwapRooms()}
-                className="rounded-md bg-amber-600 px-4 py-2 text-white"
+                disabled={isSwappingRooms}
+                className="rounded-md bg-amber-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 שמור החלפת חדרים
               </button>
@@ -1600,7 +1635,7 @@ export default function HomeroomsPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-gray-600 bg-opacity-50">
           <div className="relative top-20 mx-auto w-96 rounded-md border bg-white p-5 shadow-lg">
-            <h3 className="mb-4 text-lg font-medium text-gray-900">{editingHomeroom ? "עריכת כיתת אם" : "הוספת כיתת אם חדשה"}</h3>
+            <h3 className="mb-4 text-lg font-medium text-gray-900">{editingHomeroom ? "עריכת כיתת אם" : "כיתת אם חדשה"}</h3>
             <div className="space-y-4">
               <div className="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
                 {activeAcademicYear
