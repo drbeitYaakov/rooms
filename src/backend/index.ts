@@ -31,6 +31,7 @@ import calendarRoutes from './api/routes/calendar';
 import auditoriumsRoutes from './api/routes/auditoriums';
 import roomPrioritiesRoutes from './api/routes/roomPriorities';
 import { syncAuditoriumDefaults } from './utils/auditoriumDefaults';
+import { syncMusicRoomDefaults } from './utils/musicRoomDefaults';
 
 // Import services
 import { SchedulingEngine } from './domain/scheduling/schedulingEngine';
@@ -206,8 +207,9 @@ server.listen(PORT, () => {
     const today = new Date();
     const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     await syncAuditoriumDefaults(trx, startDate);
+    await syncMusicRoomDefaults(trx, startDate);
   }).catch((error) => {
-    logger.error('Failed to sync auditorium defaults on startup:', error);
+    logger.error('Failed to sync default room schedules on startup:', error);
   });
 });
 

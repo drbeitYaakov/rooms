@@ -192,6 +192,7 @@ export class AssignmentEntity implements Assignment {
       'one_on_one': 'אחד על אחד',
       'discussion_topics': 'שיח / סוגיות',
       'event': 'אירוע',
+      'room_block': 'חסימת חדר',
       'PE': 'התעמלות',
       'high_school_pe': 'התעמלות תיכון',
       'didactics': 'דידקטיקה',

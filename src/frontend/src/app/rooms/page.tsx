@@ -33,6 +33,34 @@ interface RoomStatus {
   utilization_today: number;
 }
 
+interface MusicRoomDefaultBlockSlot {
+  day_of_week: number;
+  is_active: boolean;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+interface MusicRoomDefaultBlocksResponse {
+  success: boolean;
+  data?: {
+    system_default: {
+      weekly_schedule: MusicRoomDefaultBlockSlot[];
+    };
+    room: {
+      id: string;
+      room_number: string;
+      room_type: string;
+    };
+    room_overrides: Array<{
+      id: string;
+      room_id: string;
+      effective_from: string;
+      weekly_schedule: MusicRoomDefaultBlockSlot[];
+    }>;
+  };
+  error?: string;
+}
+
 export default function RoomsPage() {
   const { data: session } = useSession();
   const [rooms, setRooms] = useState<Array<{
@@ -80,6 +108,28 @@ export default function RoomsPage() {
   }, [statusFilters]);
 
   const isAdmin = session?.user?.role === 'admin';
+
+  const isMusicRoomType = (roomType?: string | null) => {
+    const normalized = String(roomType || '').trim().toUpperCase();
+    return normalized === 'MUSIC' || normalized === 'MUSIC_ROOM' || normalized === 'MUSIC_ROOM';
+  };
+
+  const musicRoomDayLabels: Record<number, string> = {
+    0: 'ראשון',
+    1: 'שני',
+    2: 'שלישי',
+    3: 'רביעי',
+    4: 'חמישי',
+    5: 'שישי'
+  };
+
+  const buildEmptyMusicRoomWeeklySchedule = (): MusicRoomDefaultBlockSlot[] =>
+    [0, 1, 2, 3, 4, 5].map((day) => ({
+      day_of_week: day,
+      is_active: false,
+      start_time: null,
+      end_time: null
+    }));
   
   console.log('Session:', session);
   console.log('User role:', session?.user?.role);
@@ -557,29 +607,64 @@ export default function RoomsPage() {
       return;
     }
 
+    const roomIsMusic = isMusicRoomType(room.room_type);
+
     // Create edit dialog
     const dialog = document.createElement('div');
     dialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     dialog.innerHTML = `
-      <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+      <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <h3 class="text-lg font-bold mb-4">עריכת חדר: ${room.room_number}</h3>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">תכולת חדר:</label>
-          <input type="number" id="editCapacity" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="${room.capacity}">
+
+        ${roomIsMusic ? `
+        <div class="mb-6 border-b border-gray-200">
+          <div class="flex gap-2">
+            <button id="roomDetailsTabBtn" class="px-4 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600">פרטי חדר</button>
+            <button id="musicDefaultsTabBtn" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500">זמנים קבועים</button>
+          </div>
         </div>
-        
-        <div class="mb-6">
-          <label class="flex items-center">
-            <input type="checkbox" id="editHasProjector" class="ml-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${room.has_projector ? 'checked' : ''}>
-            <span class="text-sm font-medium text-gray-700">האם יש מקרן בחדר?</span>
-          </label>
+        ` : ''}
+
+        <div id="roomDetailsTabPanel">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">תכולת חדר:</label>
+            <input type="number" id="editCapacity" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="${room.capacity}">
+          </div>
+
+          <div class="mb-6">
+            <label class="flex items-center">
+              <input type="checkbox" id="editHasProjector" class="ml-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${room.has_projector ? 'checked' : ''}>
+              <span class="text-sm font-medium text-gray-700">האם יש מקרן בחדר?</span>
+            </label>
+          </div>
+
+          <div class="flex justify-end space-x-2 space-x-reverse">
+            <button id="cancelEditBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">ביטול</button>
+            <button id="saveEditBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">שמור</button>
+          </div>
         </div>
-        
-        <div class="flex justify-end space-x-2 space-x-reverse">
-          <button id="cancelEditBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">ביטול</button>
-          <button id="saveEditBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">שמור</button>
+
+        ${roomIsMusic ? `
+        <div id="musicDefaultsTabPanel" class="hidden">
+          <div class="mb-4 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            ההגדרות כאן יחולו מהיום שתבחרי ועד סוף שנת הלימודים המוגדרת במערכת.
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">החל מ-</label>
+            <input type="date" id="musicEffectiveFrom" class="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+
+          <div id="musicDefaultsMessage" class="hidden mb-4 rounded-md px-4 py-3 text-sm"></div>
+          <div id="musicDefaultsLoading" class="mb-4 text-sm text-gray-500">טוען זמנים קבועים...</div>
+          <div id="musicDefaultsGrid" class="space-y-3"></div>
+
+          <div class="mt-6 flex justify-end space-x-2 space-x-reverse">
+            <button id="cancelMusicDefaultsBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">ביטול</button>
+            <button id="saveMusicDefaultsBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">שמור זמנים קבועים</button>
+          </div>
         </div>
+        ` : ''}
       </div>
     `;
     
@@ -589,12 +674,167 @@ export default function RoomsPage() {
     const hasProjectorCheckbox = dialog.querySelector('#editHasProjector') as HTMLInputElement;
     const cancelBtn = dialog.querySelector('#cancelEditBtn') as HTMLButtonElement;
     const saveBtn = dialog.querySelector('#saveEditBtn') as HTMLButtonElement;
+    const roomDetailsTabPanel = dialog.querySelector('#roomDetailsTabPanel') as HTMLDivElement | null;
+    const musicDefaultsTabPanel = dialog.querySelector('#musicDefaultsTabPanel') as HTMLDivElement | null;
+    const roomDetailsTabBtn = dialog.querySelector('#roomDetailsTabBtn') as HTMLButtonElement | null;
+    const musicDefaultsTabBtn = dialog.querySelector('#musicDefaultsTabBtn') as HTMLButtonElement | null;
+    const cancelMusicDefaultsBtn = dialog.querySelector('#cancelMusicDefaultsBtn') as HTMLButtonElement | null;
+    const saveMusicDefaultsBtn = dialog.querySelector('#saveMusicDefaultsBtn') as HTMLButtonElement | null;
+    const musicEffectiveFromInput = dialog.querySelector('#musicEffectiveFrom') as HTMLInputElement | null;
+    const musicDefaultsGrid = dialog.querySelector('#musicDefaultsGrid') as HTMLDivElement | null;
+    const musicDefaultsLoading = dialog.querySelector('#musicDefaultsLoading') as HTMLDivElement | null;
+    const musicDefaultsMessage = dialog.querySelector('#musicDefaultsMessage') as HTMLDivElement | null;
+
+    const showMusicMessage = (message: string, type: 'error' | 'success') => {
+      if (!musicDefaultsMessage) {
+        return;
+      }
+
+      musicDefaultsMessage.textContent = message;
+      musicDefaultsMessage.className = `mb-4 rounded-md px-4 py-3 text-sm ${type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`;
+      musicDefaultsMessage.classList.remove('hidden');
+    };
+
+    const renderMusicDefaultsGrid = (weeklySchedule: MusicRoomDefaultBlockSlot[]) => {
+      if (!musicDefaultsGrid) {
+        return;
+      }
+
+      musicDefaultsGrid.innerHTML = weeklySchedule.map((slot) => `
+        <div class="rounded-lg border border-gray-200 p-4">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input type="checkbox" data-day="${slot.day_of_week}" data-role="active" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${slot.is_active ? 'checked' : ''}>
+              ${musicRoomDayLabels[slot.day_of_week]}
+            </label>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <input
+                type="time"
+                data-day="${slot.day_of_week}"
+                data-role="start"
+                class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                value="${slot.start_time || ''}"
+                ${slot.is_active ? '' : 'disabled'}
+              >
+              <input
+                type="time"
+                data-day="${slot.day_of_week}"
+                data-role="end"
+                class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                value="${slot.end_time || ''}"
+                ${slot.is_active ? '' : 'disabled'}
+              >
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      weeklySchedule.forEach((slot) => {
+        const activeCheckbox = musicDefaultsGrid.querySelector(`input[data-day="${slot.day_of_week}"][data-role="active"]`) as HTMLInputElement | null;
+        const startInput = musicDefaultsGrid.querySelector(`input[data-day="${slot.day_of_week}"][data-role="start"]`) as HTMLInputElement | null;
+        const endInput = musicDefaultsGrid.querySelector(`input[data-day="${slot.day_of_week}"][data-role="end"]`) as HTMLInputElement | null;
+
+        activeCheckbox?.addEventListener('change', () => {
+          const isActive = activeCheckbox.checked;
+          if (startInput) {
+            startInput.disabled = !isActive;
+            if (!isActive) {
+              startInput.value = '';
+            }
+          }
+
+          if (endInput) {
+            endInput.disabled = !isActive;
+            if (!isActive) {
+              endInput.value = '';
+            }
+          }
+        });
+      });
+    };
+
+    const readMusicDefaultsGrid = (): MusicRoomDefaultBlockSlot[] => {
+      return buildEmptyMusicRoomWeeklySchedule().map((baseSlot) => {
+        const activeCheckbox = musicDefaultsGrid?.querySelector(`input[data-day="${baseSlot.day_of_week}"][data-role="active"]`) as HTMLInputElement | null;
+        const startInput = musicDefaultsGrid?.querySelector(`input[data-day="${baseSlot.day_of_week}"][data-role="start"]`) as HTMLInputElement | null;
+        const endInput = musicDefaultsGrid?.querySelector(`input[data-day="${baseSlot.day_of_week}"][data-role="end"]`) as HTMLInputElement | null;
+        const isActive = Boolean(activeCheckbox?.checked);
+
+        return {
+          day_of_week: baseSlot.day_of_week,
+          is_active: isActive,
+          start_time: isActive ? (startInput?.value || null) : null,
+          end_time: isActive ? (endInput?.value || null) : null
+        };
+      });
+    };
+
+    const loadMusicDefaults = async () => {
+      if (!roomIsMusic || !musicDefaultsLoading) {
+        return;
+      }
+
+      musicDefaultsLoading.textContent = 'טוען זמנים קבועים...';
+      musicDefaultsLoading.classList.remove('hidden');
+      if (musicDefaultsGrid) {
+        musicDefaultsGrid.innerHTML = '';
+      }
+      musicDefaultsMessage?.classList.add('hidden');
+
+      try {
+        const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/rooms/${roomId}/default-blocks`);
+        const data = await response.json() as MusicRoomDefaultBlocksResponse;
+
+        if (!data.success || !data.data) {
+          throw new Error(data.error || 'טעינת הזמנים הקבועים נכשלה');
+        }
+
+        const latestOverride = [...(data.data.room_overrides || [])]
+          .sort((left, right) => right.effective_from.localeCompare(left.effective_from))[0];
+        const weeklySchedule = latestOverride?.weekly_schedule || data.data.system_default.weekly_schedule || buildEmptyMusicRoomWeeklySchedule();
+
+        if (musicEffectiveFromInput && latestOverride?.effective_from) {
+          musicEffectiveFromInput.value = latestOverride.effective_from;
+        }
+
+        renderMusicDefaultsGrid(weeklySchedule);
+      } catch (error) {
+        console.error('Error loading music room defaults:', error);
+        showMusicMessage('לא הצלחנו לטעון את הזמנים הקבועים של חדר המוזיקה.', 'error');
+        renderMusicDefaultsGrid(buildEmptyMusicRoomWeeklySchedule());
+      } finally {
+        musicDefaultsLoading.classList.add('hidden');
+      }
+    };
+
+    const setActiveTab = (tab: 'details' | 'defaults') => {
+      const isDetails = tab === 'details';
+      roomDetailsTabPanel?.classList.toggle('hidden', !isDetails);
+      musicDefaultsTabPanel?.classList.toggle('hidden', isDetails);
+      roomDetailsTabBtn?.classList.toggle('border-blue-600', isDetails);
+      roomDetailsTabBtn?.classList.toggle('text-blue-600', isDetails);
+      roomDetailsTabBtn?.classList.toggle('border-transparent', !isDetails);
+      roomDetailsTabBtn?.classList.toggle('text-gray-500', !isDetails);
+      musicDefaultsTabBtn?.classList.toggle('border-blue-600', !isDetails);
+      musicDefaultsTabBtn?.classList.toggle('text-blue-600', !isDetails);
+      musicDefaultsTabBtn?.classList.toggle('border-transparent', isDetails);
+      musicDefaultsTabBtn?.classList.toggle('text-gray-500', isDetails);
+    };
     
     const closeEditDialog = () => {
       document.body.removeChild(dialog);
     };
     
     cancelBtn.addEventListener('click', closeEditDialog);
+    cancelMusicDefaultsBtn?.addEventListener('click', closeEditDialog);
+    roomDetailsTabBtn?.addEventListener('click', () => setActiveTab('details'));
+    musicDefaultsTabBtn?.addEventListener('click', () => {
+      setActiveTab('defaults');
+      if (musicDefaultsGrid && musicDefaultsGrid.innerHTML.trim() === '') {
+        void loadMusicDefaults();
+      }
+    });
     
     saveBtn.addEventListener('click', async () => {
       const newCapacity = parseInt(capacityInput.value);
@@ -621,6 +861,61 @@ export default function RoomsPage() {
         saveBtn.textContent = 'שמור';
       }
     });
+
+    saveMusicDefaultsBtn?.addEventListener('click', async () => {
+      const weeklySchedule = readMusicDefaultsGrid();
+      const invalidSlot = weeklySchedule.find((slot) =>
+        slot.is_active && (!slot.start_time || !slot.end_time || slot.start_time >= slot.end_time)
+      );
+
+      if (invalidSlot) {
+        showMusicMessage(`יש להשלים טווח שעות תקין עבור יום ${musicRoomDayLabels[invalidSlot.day_of_week]}.`, 'error');
+        return;
+      }
+
+      const effectiveFrom = musicEffectiveFromInput?.value;
+      if (!effectiveFrom) {
+        showMusicMessage('יש לבחור תאריך תחילה.', 'error');
+        return;
+      }
+
+      if (saveMusicDefaultsBtn) {
+        saveMusicDefaultsBtn.disabled = true;
+        saveMusicDefaultsBtn.textContent = 'שומר...';
+      }
+
+      try {
+        const response = await authenticatedFetch(`https://rooms-ma9h.onrender.com/api/rooms/${roomId}/default-blocks`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            effective_from: effectiveFrom,
+            weekly_schedule: weeklySchedule
+          }),
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+          showMusicMessage(data.error || 'שמירת הזמנים הקבועים נכשלה.', 'error');
+          return;
+        }
+
+        showMusicMessage('הזמנים הקבועים נשמרו בהצלחה.', 'success');
+        await fetchRooms();
+        await fetchRoomStatus(true);
+      } catch (error) {
+        console.error('Error saving music room defaults:', error);
+        showMusicMessage('אירעה שגיאה בשמירת הזמנים הקבועים.', 'error');
+      } finally {
+        if (saveMusicDefaultsBtn) {
+          saveMusicDefaultsBtn.disabled = false;
+          saveMusicDefaultsBtn.textContent = 'שמור זמנים קבועים';
+        }
+      }
+    });
+
+    if (roomIsMusic) {
+      setActiveTab('details');
+    }
     
     // Close dialog when clicking outside
     dialog.addEventListener('click', (e) => {

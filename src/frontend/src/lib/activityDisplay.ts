@@ -14,6 +14,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   high_school_pe: "התעמלות תיכון",
   PE: "התעמלות",
   homeroom: "כיתת אם",
+  music_room_block: "חסימת חדר מוזיקה",
   לימודים: "כיתת אם",
   exam: "מבחן",
 };
@@ -34,6 +35,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
   high_school_pe: "border-orange-200 bg-orange-50 text-orange-800",
   PE: "border-orange-200 bg-orange-50 text-orange-800",
   homeroom: "border-indigo-200 bg-indigo-50 text-indigo-800",
+  music_room_block: "border-red-200 bg-red-50 text-red-800",
   לימודים: "border-indigo-200 bg-indigo-50 text-indigo-800",
   exam: "border-rose-200 bg-rose-50 text-rose-800",
 };

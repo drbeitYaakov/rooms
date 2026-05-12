@@ -26,7 +26,7 @@ export interface Room {
 export interface Assignment {
   id: string;
   type: "permanent" | "temporary" | "one_time";
-  assignableType: "homeroom" | "study_group" | "event" | "PE" | "didactics" | "exam_makeup" | "one_on_one" | "discussion_topics" | "high_school_pe";
+  assignableType: "homeroom" | "study_group" | "event" | "PE" | "didactics" | "exam_makeup" | "one_on_one" | "discussion_topics" | "high_school_pe" | "room_block";
   assignableId: string;
   roomId: string;
   startDate: string;

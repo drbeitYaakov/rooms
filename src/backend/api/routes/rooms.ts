@@ -4,6 +4,13 @@ import { authMiddleware, AuthenticatedRequest, requireAdmin } from '../../middle
 import { asyncHandler } from '../../middleware/errorHandler';
 import { logScheduling } from '../../utils/logger';
 import { applyAuditoriumDefaultSettingsToAssignments } from '../../utils/auditoriumDefaults';
+import {
+  applyMusicRoomDefaultSettingsToAssignments,
+  buildMusicRoomWeeklySchedule,
+  loadMusicRoomDefaultSchedule,
+  normalizeMusicRoomWeeklySchedule,
+  saveMusicRoomOverrideSetting
+} from '../../utils/musicRoomDefaults';
 import { RoomEntity } from '../../domain/entities/Room';
 import { getRoomLocation, isMamadRoom } from '../../domain/models/Room';
 
@@ -12,6 +19,29 @@ const router = Router();
 const getToday = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const normalizeDateOnly = (value: unknown): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return value.includes('T') ? value.split('T')[0] : value;
+  }
+
+  const parsed = new Date(value as string);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+};
+
+const isMusicRoom = (room: { room_type?: string | null; notes?: string | null }) => {
+  const roomType = String(room.room_type || '').trim().toUpperCase();
+  const notes = String(room.notes || '').trim().toLowerCase();
+  return roomType === 'MUSIC' || roomType === 'MUSIC_ROOM' || notes.includes('מוזיקה');
 };
 
 const normalizeIncomingRoomType = (roomType: unknown): string => {
@@ -62,6 +92,121 @@ router.get('/:id', authMiddleware, asyncHandler(async (req: AuthenticatedRequest
   res.json({
     success: true,
     data: { room }
+  });
+}));
+
+router.get('/:id/default-blocks', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+
+  const room = await db('rooms')
+    .where({ id, is_active: true })
+    .first();
+
+  if (!room) {
+    return res.status(404).json({
+      success: false,
+      error: 'החדר לא נמצא'
+    });
+  }
+
+  if (!isMusicRoom(room)) {
+    return res.status(400).json({
+      success: false,
+      error: 'החדר שנבחר אינו חדר מוזיקה'
+    });
+  }
+
+  const schedule = await loadMusicRoomDefaultSchedule(db);
+  const roomOverrides = schedule.roomOverrides.filter((setting) => String(setting.room_id) === String(id));
+
+  res.json({
+    success: true,
+    data: {
+      system_default: {
+        weekly_schedule: buildMusicRoomWeeklySchedule()
+      },
+      room: {
+        id: room.id,
+        room_number: room.room_number,
+        room_type: room.room_type
+      },
+      room_overrides: roomOverrides
+    }
+  });
+}));
+
+router.put('/:id/default-blocks', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const normalizedDate = normalizeDateOnly(req.body?.effective_from);
+  const normalizedWeeklySchedule = normalizeMusicRoomWeeklySchedule(req.body?.weekly_schedule);
+
+  if (!normalizedDate || !Array.isArray(req.body?.weekly_schedule)) {
+    return res.status(400).json({
+      success: false,
+      error: 'חובה לשלוח effective_from ו-weekly_schedule'
+    });
+  }
+
+  const room = await db('rooms')
+    .where({ id, is_active: true })
+    .first();
+
+  if (!room) {
+    return res.status(404).json({
+      success: false,
+      error: 'החדר לא נמצא'
+    });
+  }
+
+  if (!isMusicRoom(room)) {
+    return res.status(400).json({
+      success: false,
+      error: 'החדר שנבחר אינו חדר מוזיקה'
+    });
+  }
+
+  await db.transaction(async (trx) => {
+    await saveMusicRoomOverrideSetting(trx, {
+      room_id: String(id),
+      effective_from: normalizedDate,
+      weekly_schedule: normalizedWeeklySchedule,
+      updated_by: req.user?.id ?? null
+    });
+
+    await applyMusicRoomDefaultSettingsToAssignments(
+      trx,
+      [String(id)],
+      normalizedDate,
+      req.user?.id ?? null
+    );
+  });
+
+  res.json({
+    success: true,
+    message: 'הזמנים הקבועים של חדר המוזיקה נשמרו בהצלחה'
+  });
+}));
+
+router.post('/music-default-blocks/sync', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const startDate = normalizeDateOnly(req.body?.start_date) ?? getToday();
+  const rooms = await db('rooms')
+    .select('id', 'room_type', 'notes')
+    .where({ is_active: true });
+  const musicRoomIds = rooms
+    .filter((room: any) => isMusicRoom(room))
+    .map((room: any) => String(room.id));
+
+  await db.transaction(async (trx) => {
+    await applyMusicRoomDefaultSettingsToAssignments(
+      trx,
+      musicRoomIds,
+      startDate,
+      req.user?.id ?? null
+    );
+  });
+
+  res.json({
+    success: true
   });
 }));
 
@@ -160,6 +305,12 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
     });
   }
 
+  if (isMusicRoom(room)) {
+    await db.transaction(async (trx) => {
+      await applyMusicRoomDefaultSettingsToAssignments(trx, [String(room.id)], getToday(), req.user?.id ?? null);
+    });
+  }
+
   // Handle homeroom assignments if requested
   let homeroomsCreated = [];
   if (assignAsHomeroom && homeroomAssignments && Array.isArray(homeroomAssignments)) {
@@ -240,6 +391,12 @@ router.put('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Response)
   if (String(room.room_type).toUpperCase() === 'AUDITORIUM') {
     await db.transaction(async (trx) => {
       await applyAuditoriumDefaultSettingsToAssignments(trx, [String(room.id)], getToday(), req.user?.id ?? null);
+    });
+  }
+
+  if (isMusicRoom(room)) {
+    await db.transaction(async (trx) => {
+      await applyMusicRoomDefaultSettingsToAssignments(trx, [String(room.id)], getToday(), req.user?.id ?? null);
     });
   }
 
