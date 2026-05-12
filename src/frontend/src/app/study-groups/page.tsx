@@ -158,6 +158,7 @@ export default function StudyGroupsPage() {
   const [schedulingResult, setSchedulingResult] = useState<SchedulingResult | null>(null);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [isSchedulingSelectedGroups, setIsSchedulingSelectedGroups] = useState(false);
+  const [isExportingAssignmentsReport, setIsExportingAssignmentsReport] = useState(false);
   const [editingGroup, setEditingGroup] = useState<StudyGroup | null>(null);
   const [showInlineAddRow, setShowInlineAddRow] = useState(false);
   const [showGradeGroupDefinitions, setShowGradeGroupDefinitions] = useState(false);
@@ -393,6 +394,52 @@ export default function StudyGroupsPage() {
     }
   };
 
+  const handleExportAssignmentsReport = async () => {
+    setIsExportingAssignmentsReport(true);
+
+    try {
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/study-groups/export-assignments-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          group_ids: selectedGroups.length > 0 ? selectedGroups : studyGroups.map((group) => group.id),
+          format: "csv",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(`שגיאה בייצוא הדוח: ${data.error}`);
+        return;
+      }
+
+      if (!data.data?.has_rows) {
+        alert("אין שיבוצים עבור ההקבצות שנבחרו");
+        return;
+      }
+
+      const reportContent = data.data.report_content;
+      const fileName = data.data.file_name || `study_groups_assignments_${new Date().toISOString().split("T")[0]}.csv`;
+      const blob = new Blob([reportContent], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting assignments report:", error);
+      alert("אירעה שגיאה בייצוא דוח השיבוצים");
+    } finally {
+      setIsExportingAssignmentsReport(false);
+    }
+  };
+
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroups((prev) => (prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]));
   };
@@ -474,7 +521,7 @@ export default function StudyGroupsPage() {
               <div className="mb-6 rounded-lg bg-white shadow">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="mb-4 text-lg font-medium leading-6 text-gray-900">פעולות ניהול</h3>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <button
                       onClick={handleScheduleGroups}
                       disabled={selectedGroups.length === 0 || isSchedulingSelectedGroups}
@@ -482,6 +529,15 @@ export default function StudyGroupsPage() {
                     >
                       <ButtonLoadingContent loading={isSchedulingSelectedGroups} loadingText="משבץ הקבצות...">
                         {`שבץ הקבצות נבחרות (${selectedGroups.length})`}
+                      </ButtonLoadingContent>
+                    </button>
+                    <button
+                      onClick={handleExportAssignmentsReport}
+                      disabled={studyGroups.length === 0 || isExportingAssignmentsReport}
+                      className="rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                    >
+                      <ButtonLoadingContent loading={isExportingAssignmentsReport} loadingText="מייצא דוח שיבוצים...">
+                        {selectedGroups.length > 0 ? `ייצוא דוח שיבוצים (${selectedGroups.length})` : "ייצוא דוח שיבוצי הקבצות"}
                       </ButtonLoadingContent>
                     </button>
                     {/* <button onClick={handleExportCalendar} className="rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700">
