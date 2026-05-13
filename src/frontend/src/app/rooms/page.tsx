@@ -329,13 +329,14 @@ export default function RoomsPage() {
           
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">קומה:</label>
-            <input type="number" id="floor" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="הכנס מספר קומה" value="1">
+            <input type="number" id="floor" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ייקבע אוטומטית" readonly>
             <p class="text-xs text-gray-500 mt-1">ייקבע אוטומטית לפי מספר החדר</p>
           </div>
           
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">אגף:</label>
-            <select id="wing" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select id="wing" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">ייקבע אוטומטית</option>
               <option value="old">אגף ישן</option>
               <option value="new">אגף חדש</option>
             </select>
@@ -438,14 +439,10 @@ export default function RoomsPage() {
       const location = getRoomLocation(roomNumber);
       
       // Auto-fill floor for all valid room numbers
-      if (location.floor) {
-        floorInput.value = location.floor;
-      }
+      floorInput.value = location.floor;
       
       // Auto-fill wing for all valid room numbers
-      if (location.wing) {
-        wingSelect.value = location.wing;
-      }
+      wingSelect.value = location.wing;
       
       // Auto-fill room type only for MAMAD if not already selected
       if (location.roomType && !roomTypeSelect.value) {
