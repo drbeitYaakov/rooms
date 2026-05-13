@@ -407,7 +407,7 @@ export default function RoomsPage() {
       
       // Determine floor
       let floorValue = '';
-      if (floor >= '1' && floor <= '4') {
+      if (floor >= '1' && floor <= '5') {
         floorValue = floor;
       }
       

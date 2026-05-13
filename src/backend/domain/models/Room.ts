@@ -67,8 +67,8 @@ export function getRoomLocation(roomNumber: string): RoomLocation {
   }
   
   const floor = parseInt(roomNumber[0]);
-  if (isNaN(floor) || floor < 1 || floor > 4) {
-    throw new Error('Room number should start with digit 1-4');
+  if (isNaN(floor) || floor < 1 || floor > 5) {
+    throw new Error('Room number should start with digit 1-5');
   }
   
   // Wing determination based on middle digit
