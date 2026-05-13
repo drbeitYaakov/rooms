@@ -9,6 +9,7 @@ import {
   resolveHomeroomDefaultHours
 } from '../../utils/homeroomDefaults';
 import { extractAuditoriumMetadata } from '../../utils/auditoriumDefaults';
+import { getHomeroomName } from '../../domain/models/Homeroom';
 
 const router = Router();
 
@@ -313,7 +314,8 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
 
   const homeroomRows = homeroomRoomIds.length > 0
     ? await db('homerooms')
-        .select('id', 'room_id', 'grade_id')
+        .select('homerooms.id', 'homerooms.room_id', 'homerooms.grade_id', 'homerooms.class_number', 'grades.name as grade_name')
+        .leftJoin('grades', 'homerooms.grade_id', 'grades.id')
         .whereIn('room_id', homeroomRoomIds)
         .andWhere({ is_active: true })
     : [];
@@ -481,6 +483,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
 
   // Build calendar grid
   const calendarGrid = rooms.map(room => {
+    const homeroom = homeroomByRoomId.get(String(room.id));
     console.log(`🏗️ Building calendar for room ${room.room_number} (${room.id})`);
     
     const roomSchedule: any = {
@@ -492,6 +495,7 @@ router.get('/grid', authMiddleware, asyncHandler(async (req: AuthenticatedReques
       capacity: room.capacity,
       has_projector: room.has_projector,
       is_small: room.is_small,
+      homeroom_display_name: homeroom ? getHomeroomName(homeroom) : null,
       schedule: {}
     };
 

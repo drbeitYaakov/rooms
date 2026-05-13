@@ -53,6 +53,7 @@ interface Room {
   capacity: number;
   has_projector: boolean;
   is_small: boolean;
+  homeroom_display_name?: string | null;
   schedule?: Record<string, Record<string, unknown>>;
 }
 
@@ -181,6 +182,8 @@ const getRoomTypeDisplay = (roomType: string) => {
 
   return types[roomType] || roomType;
 };
+
+const isHomeroomRoomType = (roomType: string) => roomType.startsWith("CLASSROOM_");
 
 const normalizeWingValue = (wing?: string | null): string => {
   const normalized = String(wing || "").trim().toUpperCase();
@@ -864,6 +867,11 @@ export default function UnifiedCalendarPage() {
                             <div className="sticky right-0 z-20 border-l border-slate-200 bg-white px-5 py-5">
                               <div className="text-lg font-bold text-slate-900">{room.room_number}</div>
                               <div className="mt-1 text-sm text-slate-600">{getRoomTypeDisplay(room.room_type)}</div>
+                              {isHomeroomRoomType(room.room_type) && room.homeroom_display_name && (
+                                <div className="mt-2 inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
+                                  משויכת ל{room.homeroom_display_name}
+                                </div>
+                              )}
                               <div className="mt-3 space-y-1 text-xs text-slate-500">
                                 <div>קומה {room.floor} · {getWingDisplay(room.wing)}</div>
                                 <div>עד {room.capacity} תלמידים</div>
@@ -1077,6 +1085,11 @@ export default function UnifiedCalendarPage() {
                     <div className="mt-5 rounded-3xl bg-slate-50 px-4 py-4 text-sm text-slate-600">
                       <div className="font-semibold text-slate-900">פרטי חדר</div>
                       <div className="mt-2">{getRoomTypeDisplay(selectedRoom.room_type)}</div>
+                      {isHomeroomRoomType(selectedRoom.room_type) && selectedRoom.homeroom_display_name && (
+                        <div className="mt-2 inline-flex items-center rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs font-semibold text-sky-700">
+                          כיתת אם משויכת: {selectedRoom.homeroom_display_name}
+                        </div>
+                      )}
                       <div className="mt-1">
                         קומה {selectedRoom.floor} · {getWingDisplay(selectedRoom.wing)}
                       </div>
