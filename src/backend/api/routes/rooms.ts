@@ -413,7 +413,7 @@ router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Respon
   const { id } = req.params;
 
   // Check if room exists
-  const existingRoom = await db('rooms').where({ id, is_active: true }).first();
+  const existingRoom = await db('rooms').where({ id }).first();
   if (!existingRoom) {
     return res.status(404).json({
       success: false,
@@ -421,13 +421,88 @@ router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res: Respon
     });
   }
 
-  // Soft delete
-  await db('rooms').where({ id }).update({
-    is_active: false,
-    updated_at: new Date()
+  const deletionSummary = await db.transaction(async (trx) => {
+    const linkedHomerooms = await trx('homerooms')
+      .select('id')
+      .where({ room_id: id });
+    const linkedHomeroomIds = linkedHomerooms.map((homeroom: any) => homeroom.id);
+
+    const linkedSchedules = await trx('schedules')
+      .select('id')
+      .where({ room_id: id });
+    const linkedScheduleIds = linkedSchedules.map((schedule: any) => schedule.id);
+
+    if (linkedHomeroomIds.length > 0) {
+      await trx('classrooms')
+        .whereIn('home_room_id', linkedHomeroomIds)
+        .update({
+          home_room_id: null,
+          updated_at: new Date()
+        });
+
+      await trx('assignments')
+        .where('assignable_type', 'homeroom')
+        .whereIn('assignable_id', linkedHomeroomIds.map((homeroomId) => String(homeroomId)))
+        .del();
+
+      await trx('homerooms')
+        .whereIn('id', linkedHomeroomIds)
+        .del();
+    }
+
+    if (linkedScheduleIds.length > 0) {
+      await trx('schedule_exceptions')
+        .whereIn('schedule_id', linkedScheduleIds)
+        .del();
+    }
+
+    await trx('schedule_exceptions')
+      .where({ new_room_id: id })
+      .del();
+
+    await trx('cycle_default_rooms')
+      .where({ room_id: id })
+      .del();
+
+    await trx('schedules')
+      .where({ room_id: id })
+      .del();
+
+    const deletedAssignments = await trx('assignments')
+      .where({ room_id: id })
+      .del()
+      .returning('id');
+
+    const deletedRequestedRoomLinks = await trx('room_requests')
+      .where({ requested_room_id: id })
+      .del()
+      .returning('id');
+
+    const requestedRoomRequestIds = deletedRequestedRoomLinks.map((row: any) => row.id);
+    const approvedRoomLinksQuery = trx('room_requests')
+      .where({ approved_room_id: id });
+
+    if (requestedRoomRequestIds.length > 0) {
+      approvedRoomLinksQuery.whereNotIn('id', requestedRoomRequestIds);
+    }
+
+    const deletedApprovedRoomLinks = await approvedRoomLinksQuery
+      .del()
+      .returning('id');
+
+    await trx('rooms')
+      .where({ id })
+      .del();
+
+    return {
+      deletedHomeroomsCount: linkedHomeroomIds.length,
+      deletedSchedulesCount: linkedScheduleIds.length,
+      deletedAssignmentsCount: deletedAssignments.length,
+      deletedRoomRequestsCount: deletedRequestedRoomLinks.length + deletedApprovedRoomLinks.length
+    };
   });
 
-  logScheduling(`Room deleted: ${existingRoom.room_number} by ${req.user!.email}`);
+  logScheduling(`Room deleted permanently: ${existingRoom.room_number} by ${req.user!.email}`);
 
   res.json({
     success: true,

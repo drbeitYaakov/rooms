@@ -966,7 +966,7 @@ export default function RoomsPage() {
   };
 
   const handleDeleteRoom = (roomId: string) => {
-    if (confirm('האם אתה בטוח שברצונך למחוק חדר זה?')) {
+    if (confirm('מחיקה זו היא מחיקה לצמיתות.\nכל הנתונים הקשורים לחדר, כולל שיבוצים וקישורים רלוונטיים, יימחקו ולא ניתן יהיה לשחזר אותם.\n\nהאם להמשיך?')) {
       deleteRoom(roomId);
     }
   };
@@ -981,7 +981,7 @@ export default function RoomsPage() {
       const data = await response.json();
       
       if (data.success) {
-        alert('חדר נמחק בהצלחה!');
+        alert('חדר נמחק לצמיתות בהצלחה!');
         await fetchRooms(); // Refresh list
       } else {
         alert(`שגיאה: ${data.error}`);
