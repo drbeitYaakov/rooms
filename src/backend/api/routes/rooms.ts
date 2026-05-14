@@ -246,7 +246,7 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   } catch (error) {
     return res.status(400).json({
       success: false,
-      error: 'פורמט מספר החדר אינו תקין. מספר החדר צריך להתחיל בספרה 1-4 לצורך קביעת הקומה.'
+      error: 'פורמט מספר החדר אינו תקין. מספר החדר צריך להתחיל בספרה 1-5 לצורך קביעת הקומה.'
     });
   }
 
@@ -259,12 +259,8 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   }
   const finalWing = wingValue;
 
-  // Auto-determine room type for MAMAD rooms
+  // Respect the user's explicit room type choice.
   let finalRoomType = normalizeIncomingRoomType(roomType);
-  if (isMamadRoom(roomNumber) && finalRoomType !== 'MAMAD') {
-    finalRoomType = 'MAMAD'; // MAMAD rooms are computer labs
-    logScheduling(`Auto-detected MAMAD room type for room ${roomNumber}`);
-  }
 
   // Log automatic determination if used
   if (floor === undefined || wing === undefined) {
@@ -359,7 +355,7 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
       auto_determined: {
         floor: floor === undefined ? autoFloor : null,
         wing: wing === undefined ? autoWing : null,
-        room_type: isMamadRoom(roomNumber) && roomType.toUpperCase() !== 'MAMAD' ? finalRoomType : null
+        room_type: null
       }
     }
   });
