@@ -398,6 +398,22 @@ export default function RoomsPage() {
     let floorManuallyChanged = false;
     let wingManuallyChanged = false;
     let roomTypeManuallyChanged = false;
+    let isAutoFilling = false;
+
+    const applyCaravanDefaults = () => {
+      isAutoFilling = true;
+      if (!floorManuallyChanged) {
+        floorInput.value = '2';
+      }
+      if (!wingManuallyChanged) {
+        wingSelect.value = 'old';
+      }
+      if (!roomTypeManuallyChanged || roomTypeSelect.value === '' || roomTypeSelect.value === 'CARAVAN') {
+        roomTypeSelect.value = 'CARAVAN';
+      }
+      roomNumberInput.style.borderColor = '#10b981';
+      isAutoFilling = false;
+    };
     
     // Function to determine room location from room number
     const getRoomLocation = (roomNumber: string) => {
@@ -405,12 +421,13 @@ export default function RoomsPage() {
         return { floor: '', wing: '', roomType: '' };
       }
 
+      const digits = roomNumber.replace(/\D/g, '');
       // Caravan: numbers starting with 00 → floor 2, old wing, type CARAVAN
-      if (roomNumber.startsWith('00')) {
+      if (roomNumber.startsWith('00') || digits.startsWith('00')) {
         return { floor: '2', wing: 'old', roomType: 'CARAVAN' };
       }
 
-      if (roomNumber.length < 3) {
+      if (roomNumber.length < 3 && digits.length < 3) {
         return { floor: '', wing: '', roomType: '' };
       }
       
@@ -449,7 +466,13 @@ export default function RoomsPage() {
     roomNumberInput.addEventListener('input', () => {
       const roomNumber = roomNumberInput.value.trim();
       const location = getRoomLocation(roomNumber);
-      
+
+      if (location.roomType === 'CARAVAN') {
+        applyCaravanDefaults();
+        return;
+      }
+
+      isAutoFilling = true;
       // Auto-fill floor for all valid room numbers
       if (!floorManuallyChanged) {
         floorInput.value = location.floor;
@@ -460,10 +483,11 @@ export default function RoomsPage() {
         wingSelect.value = location.wing;
       }
       
-      // Auto-fill room type: caravans always; other types only if not chosen manually
-      if (location.roomType === 'CARAVAN' || (!roomTypeManuallyChanged && location.roomType)) {
+      // Auto-fill room type only when the user has not chosen one manually
+      if (!roomTypeManuallyChanged && location.roomType) {
         roomTypeSelect.value = location.roomType;
       }
+      isAutoFilling = false;
       
       // Show auto-determination indicator
       if (location.floor || location.wing || location.roomType) {
@@ -474,15 +498,25 @@ export default function RoomsPage() {
     });
 
     floorInput.addEventListener('input', () => {
-      floorManuallyChanged = true;
+      if (!isAutoFilling) {
+        floorManuallyChanged = true;
+      }
     });
 
     wingSelect.addEventListener('change', () => {
-      wingManuallyChanged = true;
+      if (!isAutoFilling) {
+        wingManuallyChanged = true;
+      }
     });
 
     roomTypeSelect.addEventListener('change', () => {
+      if (isAutoFilling) {
+        return;
+      }
       roomTypeManuallyChanged = true;
+      if (roomTypeSelect.value === 'CARAVAN') {
+        applyCaravanDefaults();
+      }
     });
     
     const closeModal = () => {
