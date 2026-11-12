@@ -318,8 +318,8 @@ export default function RoomsPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">מספר חדר:</label>
-            <input type="text" id="roomNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="הכנס מספר חדר">
-            <p class="text-xs text-gray-500 mt-1">הקומה והאגף ייקבעו אוטומטית לפי מספר החדר</p>
+            <input type="text" id="roomNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="למשל 312 או 001 לקראוון">
+            <p class="text-xs text-gray-500 mt-1">הקומה והאגף ייקבעו אוטומטית לפי מספר החדר. מספר שמתחיל ב-00 הוא קראוון בקומה 2 באגף הישן</p>
           </div>
           
           <div class="mb-4">
@@ -401,7 +401,16 @@ export default function RoomsPage() {
     
     // Function to determine room location from room number
     const getRoomLocation = (roomNumber: string) => {
-      if (!roomNumber || roomNumber.length < 3) {
+      if (!roomNumber) {
+        return { floor: '', wing: '', roomType: '' };
+      }
+
+      // Caravan: numbers starting with 00 → floor 2, old wing, type CARAVAN
+      if (roomNumber.startsWith('00')) {
+        return { floor: '2', wing: 'old', roomType: 'CARAVAN' };
+      }
+
+      if (roomNumber.length < 3) {
         return { floor: '', wing: '', roomType: '' };
       }
       
@@ -451,8 +460,8 @@ export default function RoomsPage() {
         wingSelect.value = location.wing;
       }
       
-      // Auto-fill room type only when the user has not chosen one manually
-      if (!roomTypeManuallyChanged && location.roomType) {
+      // Auto-fill room type: caravans always; other types only if not chosen manually
+      if (location.roomType === 'CARAVAN' || (!roomTypeManuallyChanged && location.roomType)) {
         roomTypeSelect.value = location.roomType;
       }
       

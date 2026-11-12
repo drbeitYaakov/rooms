@@ -13,8 +13,12 @@ export interface Room {
   created_at: Date;
 }
 
+export function isCaravanRoom(roomNumber: string): boolean {
+  return !!roomNumber && roomNumber.startsWith('00');
+}
+
 export function isMamadRoom(roomNumber: string): boolean {
-  return roomNumber.length >= 3 && roomNumber[1] === '0';
+  return roomNumber.length >= 3 && roomNumber[1] === '0' && !isCaravanRoom(roomNumber);
 }
 
 export type RoomType = 
@@ -62,7 +66,23 @@ export interface RoomLocation {
 }
 
 export function getRoomLocation(roomNumber: string): RoomLocation {
-  if (!roomNumber || roomNumber.length < 3) {
+  if (!roomNumber) {
+    throw new Error('Invalid room number format');
+  }
+
+  // Caravan: numbers starting with 00 are on floor 2, old wing
+  if (isCaravanRoom(roomNumber)) {
+    const lastDigit = parseInt(roomNumber.slice(-1), 10);
+    const section: 'right' | 'left' | 'center' =
+      roomNumber.length <= 2 || Number.isNaN(lastDigit)
+        ? 'center'
+        : lastDigit % 2 === 0
+          ? 'right'
+          : 'left';
+    return { floor: 2, wing: 'old', section };
+  }
+
+  if (roomNumber.length < 3) {
     throw new Error('Invalid room number format');
   }
   

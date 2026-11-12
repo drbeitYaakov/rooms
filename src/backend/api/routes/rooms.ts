@@ -12,7 +12,7 @@ import {
   saveMusicRoomOverrideSetting
 } from '../../utils/musicRoomDefaults';
 import { RoomEntity } from '../../domain/entities/Room';
-import { getRoomLocation, isMamadRoom } from '../../domain/models/Room';
+import { getRoomLocation, isCaravanRoom, isMamadRoom } from '../../domain/models/Room';
 
 const router = Router();
 
@@ -246,7 +246,7 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   } catch (error) {
     return res.status(400).json({
       success: false,
-      error: 'פורמט מספר החדר אינו תקין. מספר החדר צריך להתחיל בספרה 1-5 לצורך קביעת הקומה.'
+      error: 'פורמט מספר החדר אינו תקין. מספר החדר צריך להתחיל בספרה 1-5, או ב-00 עבור קראוון.'
     });
   }
 
@@ -259,8 +259,12 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
   }
   const finalWing = wingValue;
 
-  // Respect the user's explicit room type choice.
+  // Respect the user's explicit room type choice, except 00… numbers are always caravans.
   let finalRoomType = normalizeIncomingRoomType(roomType);
+  if (isCaravanRoom(roomNumber) && finalRoomType.toUpperCase() !== 'CARAVAN') {
+    finalRoomType = 'CARAVAN';
+    logScheduling(`Auto-detected CARAVAN room type for room ${roomNumber}`);
+  }
 
   // Log automatic determination if used
   if (floor === undefined || wing === undefined) {
@@ -355,7 +359,7 @@ router.post('/', asyncHandler(async (req: AuthenticatedRequest, res: Response) =
       auto_determined: {
         floor: floor === undefined ? autoFloor : null,
         wing: wing === undefined ? autoWing : null,
-        room_type: null
+        room_type: isCaravanRoom(roomNumber) ? finalRoomType : null
       }
     }
   });

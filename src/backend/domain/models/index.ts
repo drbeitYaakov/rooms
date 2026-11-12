@@ -44,7 +44,9 @@ export {
 export { 
   ROOM_TYPE_DISPLAY, 
   getRoomLocation, 
-  formatRoomLocation 
+  formatRoomLocation,
+  isCaravanRoom,
+  isMamadRoom
 } from './Room';
 
 // Export shared types with aliases to avoid conflicts

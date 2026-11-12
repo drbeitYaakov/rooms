@@ -42,12 +42,13 @@ export class RoomEntity implements Room {
   // Static factory method to create room from room number
   static fromRoomNumber(roomNumber: string, overrides: Partial<Room> = {}): RoomEntity {
     const digits = roomNumber.replace(/\D/g, '');
-    const floor = parseInt(digits[0]) || 1;
+    const isCaravanNumber = roomNumber.startsWith('00');
+    const floor = isCaravanNumber ? 2 : (parseInt(digits[0]) || 1);
     const middleDigit = parseInt(digits[1]) || 0;
     const lastDigit = parseInt(digits[digits.length - 1]) || 0;
     
-    // Determine wing from middle digit
-    const wing: Wing = middleDigit >= 3 ? 'new' : 'old';
+    // Determine wing from middle digit (caravans are always old wing, floor 2)
+    const wing: Wing = isCaravanNumber ? 'old' : (middleDigit >= 3 ? 'new' : 'old');
     
     // Determine side for old wing from last digit
     const side = wing === 'old' ? (lastDigit % 2 === 0 ? 'right' : 'left') : undefined;
@@ -57,7 +58,9 @@ export class RoomEntity implements Room {
     let priority: Priority = 'normal';
     let isSmall = false;
     
-    if (roomNumber.includes('ממ"ד') || middleDigit === 0) {
+    if (isCaravanNumber || roomNumber.includes('קרוון') || roomNumber.includes('קראוון')) {
+      roomType = 'caravan';
+    } else if (roomNumber.includes('ממ"ד') || middleDigit === 0) {
       roomType = 'mamad';
       priority = 'low';
     } else if (roomNumber === '302' || roomNumber === '332') {
@@ -70,8 +73,6 @@ export class RoomEntity implements Room {
       roomType = 'library';
     } else if (roomNumber.includes('מוזיקה')) {
       roomType = 'music';
-    } else if (roomNumber.includes('קרוון')) {
-      roomType = 'caravan';
     }
     
     return new RoomEntity(
