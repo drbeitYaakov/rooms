@@ -318,8 +318,8 @@ export default function RoomsPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">מספר חדר:</label>
-            <input type="text" inputmode="numeric" autocomplete="off" dir="ltr" id="roomNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-right" placeholder="למשל 312 או 001 לקראוון">
-            <p class="text-xs text-gray-500 mt-1">הקומה והאגף ייקבעו אוטומטית לפי מספר החדר. מספר שמתחיל ב-00 הוא קראוון בקומה 2 באגף הישן</p>
+            <input type="text" id="roomNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="הכנס מספר חדר">
+            <p class="text-xs text-gray-500 mt-1">הקומה והאגף ייקבעו אוטומטית לפי מספר החדר</p>
           </div>
           
           <div class="mb-4">
@@ -329,7 +329,7 @@ export default function RoomsPage() {
           
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">קומה:</label>
-            <input type="text" inputmode="numeric" autocomplete="off" id="floor" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ייקבע אוטומטית">
+            <input type="number" id="floor" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ייקבע אוטומטית">
             <p class="text-xs text-gray-500 mt-1">ייקבע אוטומטית לפי מספר החדר, וניתן לשנות ידנית</p>
           </div>
           
@@ -398,91 +398,93 @@ export default function RoomsPage() {
     let floorManuallyChanged = false;
     let wingManuallyChanged = false;
     let roomTypeManuallyChanged = false;
-    let isAutoFilling = false;
-
-    const digitsOnly = (value: string) => (value || '').replace(/\D/g, '');
-
-    const forceSet = (el: HTMLInputElement | HTMLSelectElement, value: string) => {
-      isAutoFilling = true;
-      el.value = value;
-      isAutoFilling = false;
-    };
-
-    const applyCaravanDefaults = (includeType = true) => {
-      forceSet(floorInput, '2');
-      forceSet(wingSelect, 'old');
-      if (includeType) {
-        forceSet(roomTypeSelect, 'CARAVAN');
+    
+    // Function to determine room location from room number
+    const getRoomLocation = (roomNumber: string) => {
+      if (!roomNumber || roomNumber.length < 3) {
+        return { floor: '', wing: '', roomType: '' };
       }
-      roomNumberInput.style.borderColor = '#10b981';
-    };
-
-    const fillFromRoomNumber = () => {
-      const digits = digitsOnly(roomNumberInput.value);
-
-      // Caravan: any number whose digits start with 00.
-      // Always overwrite floor/wing/type — never blocked by floorManuallyChanged.
-      if (digits.startsWith('00')) {
-        applyCaravanDefaults(true);
-        return;
+      
+      const floor = roomNumber[0];
+      const middleDigit = roomNumber[1];
+      const lastDigit = roomNumber[roomNumber.length - 1];
+      
+      // Determine floor
+      let floorValue = '';
+      if (floor >= '1' && floor <= '5') {
+        floorValue = floor;
       }
-
-      // Incomplete number: do not write empty strings (that can mark fields as manual).
-      if (digits.length < 3) {
-        roomNumberInput.style.borderColor = '';
-        return;
-      }
-
-      const floorDigit = digits[0];
-      const middleDigit = digits[1];
-      const floorValue = (floorDigit >= '1' && floorDigit <= '5') ? floorDigit : '';
+      
+      // Determine wing - handle ALL possible middle digits
       let wingValue = '';
-      if (middleDigit === '3' || middleDigit === '4') {
-        wingValue = 'new';
-      } else if (middleDigit >= '0' && middleDigit <= '9') {
+      if (middleDigit === '0') {
+        wingValue = 'old'; // MAMAD - old wing
+      } else if (middleDigit === '1' || middleDigit === '2') {
         wingValue = 'old';
+      } else if (middleDigit === '3' || middleDigit === '4') {
+        wingValue = 'new';
+      } else if (middleDigit === '5' || middleDigit === '6' || middleDigit === '7' || middleDigit === '8' || middleDigit === '9') {
+        wingValue = 'old'; // Default other digits to old wing
       }
-      const roomTypeValue = middleDigit === '0' ? 'MAMAD' : '';
-
-      if (floorValue && !floorManuallyChanged) {
-        forceSet(floorInput, floorValue);
+      
+      // Determine room type for MAMAD
+      let roomTypeValue = '';
+      if (middleDigit === '0') {
+        roomTypeValue = 'MAMAD';
       }
-      if (wingValue && !wingManuallyChanged) {
-        forceSet(wingSelect, wingValue);
-      }
-      if (roomTypeValue && !roomTypeManuallyChanged) {
-        forceSet(roomTypeSelect, roomTypeValue);
-      }
-
-      roomNumberInput.style.borderColor = (floorValue || wingValue || roomTypeValue) ? '#10b981' : '';
+      
+      return { floor: floorValue, wing: wingValue, roomType: roomTypeValue };
     };
 
-    ['input', 'keyup', 'change'].forEach((eventName) => {
-      roomNumberInput.addEventListener(eventName, fillFromRoomNumber);
-    });
-    roomNumberInput.addEventListener('paste', () => {
-      setTimeout(fillFromRoomNumber, 0);
-    });
-
-    floorInput.addEventListener('input', (event) => {
-      if (!isAutoFilling && event.isTrusted && !digitsOnly(roomNumberInput.value).startsWith('00')) {
-        floorManuallyChanged = true;
-      }
-    });
-
-    wingSelect.addEventListener('change', (event) => {
-      if (!isAutoFilling && event.isTrusted && !digitsOnly(roomNumberInput.value).startsWith('00')) {
-        wingManuallyChanged = true;
-      }
-    });
-
-    roomTypeSelect.addEventListener('change', (event) => {
-      if (isAutoFilling || !event.isTrusted) {
+    // Add room number input event listener for auto-determination
+    roomNumberInput.addEventListener('input', () => {
+      const roomNumber = roomNumberInput.value.trim();
+      const digitsOnly = roomNumber.replace(/\D/g, '');
+      if (digitsOnly.startsWith('00')) {
+        floorInput.value = '2';
+        wingSelect.value = 'old';
+        roomTypeSelect.value = 'CARAVAN';
+        roomNumberInput.style.borderColor = '#10b981';
         return;
       }
+      const location = getRoomLocation(roomNumber);
+      
+      // Auto-fill floor for all valid room numbers
+      if (!floorManuallyChanged) {
+        floorInput.value = location.floor;
+      }
+      
+      // Auto-fill wing for all valid room numbers
+      if (!wingManuallyChanged) {
+        wingSelect.value = location.wing;
+      }
+      
+      // Auto-fill room type only when the user has not chosen one manually
+      if (!roomTypeManuallyChanged && location.roomType) {
+        roomTypeSelect.value = location.roomType;
+      }
+      
+      // Show auto-determination indicator
+      if (location.floor || location.wing || location.roomType) {
+        roomNumberInput.style.borderColor = '#10b981'; // Green border for successful auto-detection
+      } else {
+        roomNumberInput.style.borderColor = ''; // Reset border color
+      }
+    });
+
+    floorInput.addEventListener('input', () => {
+      floorManuallyChanged = true;
+    });
+
+    wingSelect.addEventListener('change', () => {
+      wingManuallyChanged = true;
+    });
+
+    roomTypeSelect.addEventListener('change', () => {
       roomTypeManuallyChanged = true;
       if (roomTypeSelect.value === 'CARAVAN') {
-        applyCaravanDefaults(false);
+        floorInput.value = '2';
+        wingSelect.value = 'old';
       }
     });
     
@@ -1355,7 +1357,7 @@ export default function RoomsPage() {
               <div className="px-4 py-5 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-medium text-gray-900">ניהול חדרים</h2>
-                  {(isAdmin || true) && (
+                  {isAdmin && (
                     <button 
                       onClick={handleAddRoom}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium"
