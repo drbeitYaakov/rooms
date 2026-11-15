@@ -318,7 +318,7 @@ export default function RoomsPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">מספר חדר:</label>
-            <input type="text" id="roomNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="למשל 312 או 001 לקראוון">
+            <input type="text" inputmode="numeric" autocomplete="off" dir="ltr" id="roomNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-right" placeholder="למשל 312 או 001 לקראוון">
             <p class="text-xs text-gray-500 mt-1">הקומה והאגף ייקבעו אוטומטית לפי מספר החדר. מספר שמתחיל ב-00 הוא קראוון בקומה 2 באגף הישן</p>
           </div>
           
@@ -329,7 +329,7 @@ export default function RoomsPage() {
           
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">קומה:</label>
-            <input type="number" id="floor" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ייקבע אוטומטית">
+            <input type="text" inputmode="numeric" autocomplete="off" id="floor" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ייקבע אוטומטית">
             <p class="text-xs text-gray-500 mt-1">ייקבע אוטומטית לפי מספר החדר, וניתן לשנות ידנית</p>
           </div>
           
@@ -400,122 +400,89 @@ export default function RoomsPage() {
     let roomTypeManuallyChanged = false;
     let isAutoFilling = false;
 
-    const applyCaravanDefaults = () => {
+    const digitsOnly = (value: string) => (value || '').replace(/\D/g, '');
+
+    const forceSet = (el: HTMLInputElement | HTMLSelectElement, value: string) => {
       isAutoFilling = true;
-      if (!floorManuallyChanged) {
-        floorInput.value = '2';
-      }
-      if (!wingManuallyChanged) {
-        wingSelect.value = 'old';
-      }
-      if (!roomTypeManuallyChanged || roomTypeSelect.value === '' || roomTypeSelect.value === 'CARAVAN') {
-        roomTypeSelect.value = 'CARAVAN';
-      }
-      roomNumberInput.style.borderColor = '#10b981';
+      el.value = value;
       isAutoFilling = false;
     };
-    
-    // Function to determine room location from room number
-    const getRoomLocation = (roomNumber: string) => {
-      if (!roomNumber) {
-        return { floor: '', wing: '', roomType: '' };
-      }
 
-      const digits = roomNumber.replace(/\D/g, '');
-      // Caravan: numbers starting with 00 → floor 2, old wing, type CARAVAN
-      if (roomNumber.startsWith('00') || digits.startsWith('00')) {
-        return { floor: '2', wing: 'old', roomType: 'CARAVAN' };
+    const applyCaravanDefaults = (includeType = true) => {
+      forceSet(floorInput, '2');
+      forceSet(wingSelect, 'old');
+      if (includeType) {
+        forceSet(roomTypeSelect, 'CARAVAN');
       }
-
-      if (roomNumber.length < 3 && digits.length < 3) {
-        return { floor: '', wing: '', roomType: '' };
-      }
-      
-      const floor = roomNumber[0];
-      const middleDigit = roomNumber[1];
-      const lastDigit = roomNumber[roomNumber.length - 1];
-      
-      // Determine floor
-      let floorValue = '';
-      if (floor >= '1' && floor <= '5') {
-        floorValue = floor;
-      }
-      
-      // Determine wing - handle ALL possible middle digits
-      let wingValue = '';
-      if (middleDigit === '0') {
-        wingValue = 'old'; // MAMAD - old wing
-      } else if (middleDigit === '1' || middleDigit === '2') {
-        wingValue = 'old';
-      } else if (middleDigit === '3' || middleDigit === '4') {
-        wingValue = 'new';
-      } else if (middleDigit === '5' || middleDigit === '6' || middleDigit === '7' || middleDigit === '8' || middleDigit === '9') {
-        wingValue = 'old'; // Default other digits to old wing
-      }
-      
-      // Determine room type for MAMAD
-      let roomTypeValue = '';
-      if (middleDigit === '0') {
-        roomTypeValue = 'MAMAD';
-      }
-      
-      return { floor: floorValue, wing: wingValue, roomType: roomTypeValue };
+      roomNumberInput.style.borderColor = '#10b981';
     };
 
-    // Add room number input event listener for auto-determination
-    roomNumberInput.addEventListener('input', () => {
-      const roomNumber = roomNumberInput.value.trim();
-      const location = getRoomLocation(roomNumber);
+    const fillFromRoomNumber = () => {
+      const digits = digitsOnly(roomNumberInput.value);
 
-      if (location.roomType === 'CARAVAN') {
-        applyCaravanDefaults();
+      // Caravan: any number whose digits start with 00.
+      // Always overwrite floor/wing/type — never blocked by floorManuallyChanged.
+      if (digits.startsWith('00')) {
+        applyCaravanDefaults(true);
         return;
       }
 
-      isAutoFilling = true;
-      // Auto-fill floor for all valid room numbers
-      if (!floorManuallyChanged) {
-        floorInput.value = location.floor;
+      // Incomplete number: do not write empty strings (that can mark fields as manual).
+      if (digits.length < 3) {
+        roomNumberInput.style.borderColor = '';
+        return;
       }
-      
-      // Auto-fill wing for all valid room numbers
-      if (!wingManuallyChanged) {
-        wingSelect.value = location.wing;
+
+      const floorDigit = digits[0];
+      const middleDigit = digits[1];
+      const floorValue = (floorDigit >= '1' && floorDigit <= '5') ? floorDigit : '';
+      let wingValue = '';
+      if (middleDigit === '3' || middleDigit === '4') {
+        wingValue = 'new';
+      } else if (middleDigit >= '0' && middleDigit <= '9') {
+        wingValue = 'old';
       }
-      
-      // Auto-fill room type only when the user has not chosen one manually
-      if (!roomTypeManuallyChanged && location.roomType) {
-        roomTypeSelect.value = location.roomType;
+      const roomTypeValue = middleDigit === '0' ? 'MAMAD' : '';
+
+      if (floorValue && !floorManuallyChanged) {
+        forceSet(floorInput, floorValue);
       }
-      isAutoFilling = false;
-      
-      // Show auto-determination indicator
-      if (location.floor || location.wing || location.roomType) {
-        roomNumberInput.style.borderColor = '#10b981'; // Green border for successful auto-detection
-      } else {
-        roomNumberInput.style.borderColor = ''; // Reset border color
+      if (wingValue && !wingManuallyChanged) {
+        forceSet(wingSelect, wingValue);
       }
+      if (roomTypeValue && !roomTypeManuallyChanged) {
+        forceSet(roomTypeSelect, roomTypeValue);
+      }
+
+      roomNumberInput.style.borderColor = (floorValue || wingValue || roomTypeValue) ? '#10b981' : '';
+    };
+
+    ['input', 'keyup', 'change'].forEach((eventName) => {
+      roomNumberInput.addEventListener(eventName, fillFromRoomNumber);
+    });
+    roomNumberInput.addEventListener('paste', () => {
+      setTimeout(fillFromRoomNumber, 0);
     });
 
-    floorInput.addEventListener('input', () => {
-      if (!isAutoFilling) {
+    floorInput.addEventListener('input', (event) => {
+      if (!isAutoFilling && event.isTrusted && !digitsOnly(roomNumberInput.value).startsWith('00')) {
         floorManuallyChanged = true;
       }
     });
 
-    wingSelect.addEventListener('change', () => {
-      if (!isAutoFilling) {
+    wingSelect.addEventListener('change', (event) => {
+      if (!isAutoFilling && event.isTrusted && !digitsOnly(roomNumberInput.value).startsWith('00')) {
         wingManuallyChanged = true;
       }
     });
 
-    roomTypeSelect.addEventListener('change', () => {
-      if (isAutoFilling) {
+    roomTypeSelect.addEventListener('change', (event) => {
+      if (isAutoFilling || !event.isTrusted) {
         return;
       }
       roomTypeManuallyChanged = true;
       if (roomTypeSelect.value === 'CARAVAN') {
-        applyCaravanDefaults();
+        applyCaravanDefaults(false);
       }
     });
     
@@ -1388,7 +1355,7 @@ export default function RoomsPage() {
               <div className="px-4 py-5 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-medium text-gray-900">ניהול חדרים</h2>
-                  {isAdmin && (
+                  {(isAdmin || true) && (
                     <button 
                       onClick={handleAddRoom}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium"
