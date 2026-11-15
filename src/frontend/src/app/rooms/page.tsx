@@ -407,7 +407,6 @@ export default function RoomsPage() {
       
       const floor = roomNumber[0];
       const middleDigit = roomNumber[1];
-      const lastDigit = roomNumber[roomNumber.length - 1];
       
       // Determine floor
       let floorValue = '';
