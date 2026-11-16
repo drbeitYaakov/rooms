@@ -46,7 +46,7 @@
     "eslint-config-next": "14.0.4"
   },
   "engines": {
-    "node": "20.x",
+    "node": "26.x",
     "npm": ">=8.0.0"
   }
 }
