@@ -405,6 +405,7 @@ export default function RoomsPage() {
         return { floor: '', wing: '', roomType: '' };
       }
 
+      // caravan: room numbers starting with 0
       if (roomNumber.startsWith('0')) {
         return { floor: '2', wing: 'old', roomType: 'CARAVAN' };
       }
