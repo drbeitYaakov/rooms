@@ -11,6 +11,19 @@ import {
   getActivityTypeColorClass,
   getActivityTypeText as getDisplayActivityTypeText,
 } from "@/lib/activityDisplay";
+import {
+  AllRoomsCalendarOverview,
+  RoomFocusPanel,
+} from "./AllRoomsCalendarOverview";
+import {
+  addDays,
+  endOfMonth,
+  formatLocalDate,
+  isSameCalendarDay,
+  parseLocalDate,
+  startOfDisplayedWeek,
+  startOfMonth,
+} from "./calendarDateUtils";
 
 interface CalendarCell {
   room_id: string;
@@ -69,6 +82,7 @@ interface SelectedCellState {
 }
 
 type ViewMode = "week" | "day";
+type CalendarPresentation = "timeline" | "weekly_overview" | "monthly_overview";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://rooms-ma9h.onrender.com";
 
@@ -136,32 +150,6 @@ const getHebrewDateLabel = (date: Date) => {
   return `${hebrewDay} ${hebrewMonth}`;
 };
 
-const formatLocalDate = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const parseLocalDate = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const startOfDisplayedWeek = (date: Date) => {
-  const weekStart = new Date(date);
-  weekStart.setHours(0, 0, 0, 0);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-  return weekStart;
-};
-
-const addDays = (date: Date, amount: number) => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + amount);
-  return next;
-};
-
-const isSameCalendarDay = (a: Date, b: Date) => formatLocalDate(a) === formatLocalDate(b);
 const getActivityTypeColor = (type: string) => getActivityTypeColorClass(type);
 const getActivityTypeText = (type: string) => getDisplayActivityTypeText(type);
 
@@ -231,6 +219,8 @@ export default function UnifiedCalendarPage() {
   const [calendarData, setCalendarData] = useState<CalendarCell[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("week");
+  const [calendarPresentation, setCalendarPresentation] = useState<CalendarPresentation>("timeline");
+  const [enlargedRoomId, setEnlargedRoomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingAssignment, setEditingAssignment] = useState<AssignmentEditState | null>(null);
   const [selectedCell, setSelectedCell] = useState<SelectedCellState | null>(null);
@@ -252,15 +242,23 @@ export default function UnifiedCalendarPage() {
     if (session) {
       void fetchCalendarData();
     }
-  }, [selectedDate, session]);
+  }, [selectedDate, session, calendarPresentation]);
 
   const fetchCalendarData = async () => {
     try {
       setLoading(true);
 
-      const weekStart = startOfDisplayedWeek(selectedDate);
-      const startDate = addDays(weekStart, -7);
-      const endDate = addDays(startDate, 30);
+      let startDate: Date;
+      let endDate: Date;
+
+      if (calendarPresentation === "monthly_overview") {
+        startDate = addDays(startOfMonth(selectedDate), -3);
+        endDate = addDays(endOfMonth(selectedDate), 3);
+      } else {
+        const weekStart = startOfDisplayedWeek(selectedDate);
+        startDate = addDays(weekStart, -7);
+        endDate = addDays(startDate, 30);
+      }
 
       const response = await authenticatedFetch(
         `${API_BASE_URL}/api/calendar/grid?` +
@@ -312,6 +310,24 @@ export default function UnifiedCalendarPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getMonthDays = () => {
+    const monthStart = startOfMonth(selectedDate);
+    const monthEnd = endOfMonth(selectedDate);
+    const dayCount = monthEnd.getDate();
+
+    return Array.from({ length: dayCount }, (_, index) => {
+      const date = addDays(monthStart, index);
+      return {
+        date: formatLocalDate(date),
+        dayName: dayFormatter.format(date),
+        shortDayName: shortDayFormatter.format(date),
+        dayNumber: date.getDate(),
+        hebrewDate: getHebrewDateLabel(date),
+        isToday: isSameCalendarDay(date, new Date()),
+      };
+    });
   };
 
   const getWeekDays = () => {
@@ -508,13 +524,31 @@ export default function UnifiedCalendarPage() {
   };
 
   const navigatePeriod = (direction: "prev" | "next") => {
-    const amount = viewMode === "week" ? 7 : 1;
+    if (calendarPresentation === "monthly_overview") {
+      setSelectedDate((current) => {
+        const next = new Date(current);
+        next.setMonth(next.getMonth() + (direction === "prev" ? -1 : 1));
+        return next;
+      });
+      return;
+    }
+
+    const amount =
+      calendarPresentation === "weekly_overview" || viewMode === "week" ? 7 : 1;
     setSelectedDate((current) => addDays(current, direction === "prev" ? -amount : amount));
   };
 
   const weekDays = getWeekDays();
+  const monthDays = getMonthDays();
   const selectedDateKey = formatLocalDate(selectedDate);
-  const visibleDays = viewMode === "day" ? weekDays.filter((day) => day.date === selectedDateKey) : weekDays;
+  const overviewDays =
+    calendarPresentation === "monthly_overview" ? monthDays : weekDays;
+  const visibleDays =
+    calendarPresentation === "timeline" && viewMode === "day"
+      ? weekDays.filter((day) => day.date === selectedDateKey)
+      : calendarPresentation === "timeline"
+        ? weekDays
+        : overviewDays;
   const dayColumnMinWidth = viewMode === "day" ? 900 : 300;
   const timelineMinWidth = ROOM_COLUMN_WIDTH + visibleDays.length * dayColumnMinWidth;
 
@@ -567,6 +601,11 @@ export default function UnifiedCalendarPage() {
     : null;
   const selectedAssignments =
     selectedCell && selectedRoom ? getRoomAssignmentsForDay(selectedCell.roomId, selectedCell.date) : [];
+  const enlargedRoom = enlargedRoomId
+    ? filteredRooms.find((room) => room.room_id === enlargedRoomId) ?? null
+    : null;
+  const isOverviewPresentation =
+    calendarPresentation === "weekly_overview" || calendarPresentation === "monthly_overview";
 
   if (loading) {
     return (
@@ -629,32 +668,81 @@ export default function UnifiedCalendarPage() {
                       תקופה פעילה
                     </div>
                     <div className="mt-2 text-2xl font-bold text-slate-900">
-                      {weekDays[0].hebrewDate} - {weekDays[6].hebrewDate}
+                      {calendarPresentation === "monthly_overview"
+                        ? monthFormatter.format(selectedDate)
+                        : `${weekDays[0].hebrewDate} - ${weekDays[6].hebrewDate}`}
                     </div>
                     <div className="mt-1 text-sm text-slate-500">{monthFormatter.format(selectedDate)}</div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                    <div className="inline-flex flex-wrap rounded-2xl border border-slate-200 bg-slate-50 p-1">
                       <button
                         type="button"
-                        onClick={() => setViewMode("week")}
-                        className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                          viewMode === "week" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                        onClick={() => {
+                          setCalendarPresentation("timeline");
+                          setEnlargedRoomId(null);
+                        }}
+                        className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                          calendarPresentation === "timeline"
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-800"
                         }`}
                       >
-                        תצוגה שבועית
+                        ציר זמן
                       </button>
                       <button
                         type="button"
-                        onClick={() => setViewMode("day")}
-                        className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                          viewMode === "day" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                        onClick={() => {
+                          setCalendarPresentation("weekly_overview");
+                          setEnlargedRoomId(null);
+                        }}
+                        className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                          calendarPresentation === "weekly_overview"
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-800"
                         }`}
                       >
-                        תצוגה יומית
+                        שבועי
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCalendarPresentation("monthly_overview");
+                          setEnlargedRoomId(null);
+                        }}
+                        className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                          calendarPresentation === "monthly_overview"
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        חודשי מורחב
                       </button>
                     </div>
+
+                    {calendarPresentation === "timeline" && (
+                      <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                        <button
+                          type="button"
+                          onClick={() => setViewMode("week")}
+                          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                            viewMode === "week" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          תצוגה שבועית
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode("day")}
+                          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                            viewMode === "day" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          תצוגה יומית
+                        </button>
+                      </div>
+                    )}
 
                     <button
                       type="button"
@@ -684,24 +772,26 @@ export default function UnifiedCalendarPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {weekDays.map((day) => (
-                    <button
-                      key={day.date}
-                      type="button"
-                      onClick={() => setSelectedDate(parseLocalDate(day.date))}
-                      className={`min-w-[120px] rounded-2xl border px-4 py-3 text-right transition ${
-                        day.date === selectedDateKey
-                          ? "border-sky-200 bg-sky-50 text-sky-900 shadow-sm"
-                          : "border-slate-200 bg-slate-50/80 text-slate-700 hover:border-slate-300 hover:bg-white"
-                      }`}
-                    >
-                      <div className="text-xs font-semibold text-slate-500">{day.shortDayName}</div>
-                      <div className="mt-1 text-[11px] font-medium text-slate-500">{day.hebrewDate}</div>
-                      {day.isToday && <div className="mt-1 text-[11px] font-semibold text-sky-700">היום</div>}
-                    </button>
-                  ))}
-                </div>
+                {calendarPresentation !== "monthly_overview" && (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {weekDays.map((day) => (
+                      <button
+                        key={day.date}
+                        type="button"
+                        onClick={() => setSelectedDate(parseLocalDate(day.date))}
+                        className={`min-w-[120px] rounded-2xl border px-4 py-3 text-right transition ${
+                          day.date === selectedDateKey
+                            ? "border-sky-200 bg-sky-50 text-sky-900 shadow-sm"
+                            : "border-slate-200 bg-slate-50/80 text-slate-700 hover:border-slate-300 hover:bg-white"
+                        }`}
+                      >
+                        <div className="text-xs font-semibold text-slate-500">{day.shortDayName}</div>
+                        <div className="mt-1 text-[11px] font-medium text-slate-500">{day.hebrewDate}</div>
+                        {day.isToday && <div className="mt-1 text-[11px] font-semibold text-sky-700">היום</div>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -759,21 +849,35 @@ export default function UnifiedCalendarPage() {
               </div>
             </section>
 
-            <section className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section
+              className={`grid gap-5 ${isOverviewPresentation ? "" : "2xl:grid-cols-[minmax(0,1fr)_360px]"}`}
+            >
               <div className="rounded-[30px] border border-slate-200 bg-white shadow-[0_20px_60px_-36px_rgba(15,23,42,0.35)]">
                 <div className="border-b border-slate-200 px-6 py-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h2 className="text-xl font-bold text-slate-900">ציר זמן חדרים</h2>
+                      <h2 className="text-xl font-bold text-slate-900">
+                        {calendarPresentation === "weekly_overview"
+                          ? "מבט שבועי — כל החדרים"
+                          : calendarPresentation === "monthly_overview"
+                            ? "מבט חודשי מורחב — כל החדרים"
+                            : "ציר זמן חדרים"}
+                      </h2>
                       <p className="text-sm text-slate-500">
-                        {viewMode === "day"
-                          ? "תצוגה יומית ממוקדת עם פסי זמן מדויקים לכל שיבוץ."
-                          : "תצוגה שבועית נקייה לזיהוי מהיר של עומסים ופנאי."}
+                        {calendarPresentation === "weekly_overview"
+                          ? "שורות לפי חדר ועמודות לפי יום. לחיצה על חדר מגדילה אותו."
+                          : calendarPresentation === "monthly_overview"
+                            ? "תאים קומפקטיים לצביעת תפוסה לכל החדרים בחודש. גלילה אופקית לקריאות."
+                            : viewMode === "day"
+                              ? "תצוגה יומית ממוקדת עם פסי זמן מדויקים לכל שיבוץ."
+                              : "תצוגה שבועית נקייה לזיהוי מהיר של עומסים ופנאי."}
                       </p>
                     </div>
-                    <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                      {CALENDAR_START_HOUR}:00 - {CALENDAR_END_HOUR}:00
-                    </div>
+                    {calendarPresentation === "timeline" && (
+                      <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                        {CALENDAR_START_HOUR}:00 - {CALENDAR_END_HOUR}:00
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -784,6 +888,18 @@ export default function UnifiedCalendarPage() {
                       <div className="mt-2 text-sm text-slate-500">כדאי לנקות אחד מהפילטרים כדי להחזיר חדרים לתצוגה.</div>
                     </div>
                   </div>
+                ) : isOverviewPresentation ? (
+                  <AllRoomsCalendarOverview
+                    mode={calendarPresentation}
+                    rooms={filteredRooms}
+                    days={overviewDays}
+                    getAssignments={getRoomAssignmentsForDay}
+                    getAssignmentLabel={getAssignmentLabel}
+                    getActivityTypeColor={getActivityTypeColor}
+                    getRoomTypeDisplay={getRoomTypeDisplay}
+                    isHomeroomRoomType={isHomeroomRoomType}
+                    onRoomFocus={setEnlargedRoomId}
+                  />
                 ) : (
                   <div className="max-h-[74vh] overflow-auto">
                     <div className="min-w-full" style={{ minWidth: `${timelineMinWidth}px` }}>
@@ -986,6 +1102,7 @@ export default function UnifiedCalendarPage() {
                   </div>
                 )}
               </div>
+              {!isOverviewPresentation && (
               <aside className="rounded-[30px] border border-slate-200 bg-white shadow-[0_20px_60px_-36px_rgba(15,23,42,0.35)] 2xl:sticky 2xl:top-6 2xl:self-start">
                 <div className="border-b border-slate-200 px-5 py-4">
                   <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">פירוט שיבוצים</div>
@@ -1102,6 +1219,7 @@ export default function UnifiedCalendarPage() {
                   )}
                 </div>
               </aside>
+              )}
             </section>
 
             <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -1130,6 +1248,21 @@ export default function UnifiedCalendarPage() {
           </div>
         </div>
       </div>
+
+      {enlargedRoom && isOverviewPresentation && (
+        <RoomFocusPanel
+          mode={calendarPresentation === "weekly_overview" ? "weekly_overview" : "monthly_overview"}
+          room={enlargedRoom}
+          days={overviewDays}
+          getAssignments={getRoomAssignmentsForDay}
+          getAssignmentLabel={getAssignmentLabel}
+          getActivityTypeColor={getActivityTypeColor}
+          getRoomTypeDisplay={getRoomTypeDisplay}
+          getActivityTypeText={getActivityTypeText}
+          isHomeroomRoomType={isHomeroomRoomType}
+          onClose={() => setEnlargedRoomId(null)}
+        />
+      )}
 
       {editingAssignment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4">
