@@ -972,15 +972,22 @@ export default function UnifiedCalendarPage() {
                       </div>
 
                       <div className="divide-y divide-slate-200">
-                        {filteredRooms.map((room) => (
+                        {filteredRooms.map((room) => {
+                          const hasProjector = Boolean(room.has_projector);
+
+                          return (
                           <div
                             key={room.room_id}
-                            className="grid"
+                            className={`grid ${hasProjector ? "bg-yellow-50/35" : ""}`}
                             style={{
                               gridTemplateColumns: `${ROOM_COLUMN_WIDTH}px repeat(${visibleDays.length}, minmax(${dayColumnMinWidth}px, 1fr))`,
                             }}
                           >
-                            <div className="sticky right-0 z-20 border-l border-slate-200 bg-white px-5 py-5">
+                            <div
+                              className={`sticky right-0 z-20 border-l border-slate-200 px-5 py-5 ${
+                                hasProjector ? "bg-yellow-100" : "bg-white"
+                              }`}
+                            >
                               <div className="flex items-center gap-2">
                                 <div className="text-lg font-bold text-slate-900">{room.room_number}</div>
                                 {isHomeroomRoomType(room.room_type) && room.homeroom_display_name && (
@@ -1025,6 +1032,9 @@ export default function UnifiedCalendarPage() {
                                   }`}
                                   style={{ minHeight: `${dayCellHeightRem}rem` }}
                                 >
+                                  {hasProjector && !isSelectedCell && (
+                                    <div className="pointer-events-none absolute inset-0 bg-yellow-50/30" aria-hidden />
+                                  )}
                                   <div className="pointer-events-none absolute inset-0">
                                     {Array.from({ length: 28 }, (_, index) => {
                                       const position = (index / 28) * 100;
@@ -1096,7 +1106,8 @@ export default function UnifiedCalendarPage() {
                               );
                             })}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1243,7 +1254,7 @@ export default function UnifiedCalendarPage() {
                     <span>{item.label}</span>
                   </div>
                 ))}
-                {isOverviewPresentation && (
+                {(isOverviewPresentation || calendarPresentation === "timeline") && (
                   <div className="inline-flex items-center gap-2 rounded-full border border-yellow-200 bg-yellow-100 px-3 py-2 text-sm font-semibold text-yellow-900">
                     <span className="h-2.5 w-2.5 rounded-sm bg-yellow-300" />
                     <span>מקרן = רקע צהוב</span>
