@@ -27,6 +27,7 @@ export interface OverviewRoom {
   room_type: string;
   floor: number;
   wing: string;
+  has_projector?: boolean;
   homeroom_display_name?: string | null;
 }
 
@@ -97,10 +98,13 @@ export function AllRoomsCalendarOverview({
         </div>
 
         <div className="divide-y divide-slate-200">
-          {rooms.map((room) => (
+          {rooms.map((room) => {
+            const hasProjector = Boolean(room.has_projector);
+
+            return (
             <div
               key={room.room_id}
-              className="grid"
+              className={`grid ${hasProjector ? "bg-yellow-50/35" : ""}`}
               style={{
                 gridTemplateColumns: `${roomColumnWidth}px repeat(${days.length}, minmax(${dayMinWidth}px, 1fr))`,
               }}
@@ -108,7 +112,9 @@ export function AllRoomsCalendarOverview({
               <button
                 type="button"
                 onClick={() => onRoomFocus(room.room_id)}
-                className="sticky right-0 z-20 border-l border-slate-200 bg-white px-4 py-3 text-right transition hover:bg-sky-50"
+                className={`sticky right-0 z-20 border-l border-slate-200 px-4 py-3 text-right transition ${
+                  hasProjector ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-sky-50"
+                }`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-base font-bold text-sky-800">{room.room_number}</span>
@@ -139,7 +145,9 @@ export function AllRoomsCalendarOverview({
                     className={`border-l border-slate-200 p-1.5 text-right transition hover:brightness-95 ${
                       occupied
                         ? `${getActivityTypeColor(dominantType)} opacity-90`
-                        : "bg-emerald-50/90 text-emerald-800"
+                        : hasProjector
+                          ? "bg-yellow-50/85 text-emerald-900"
+                          : "bg-emerald-50/90 text-emerald-800"
                     }`}
                     style={{ minHeight: mode === "monthly_overview" ? "3.25rem" : "4.5rem" }}
                   >
@@ -169,7 +177,8 @@ export function AllRoomsCalendarOverview({
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

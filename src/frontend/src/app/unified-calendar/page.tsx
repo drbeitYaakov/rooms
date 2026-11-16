@@ -1243,6 +1243,12 @@ export default function UnifiedCalendarPage() {
                     <span>{item.label}</span>
                   </div>
                 ))}
+                {isOverviewPresentation && (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-yellow-200 bg-yellow-100 px-3 py-2 text-sm font-semibold text-yellow-900">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-yellow-300" />
+                    <span>מקרן = רקע צהוב</span>
+                  </div>
+                )}
               </div>
             </section>
           </div>
