@@ -14,7 +14,7 @@ export interface Room {
 }
 
 export function isCaravanRoom(roomNumber: string): boolean {
-  return !!roomNumber && roomNumber.startsWith('00');
+  return !!roomNumber && roomNumber.startsWith('0');
 }
 
 export function isMamadRoom(roomNumber: string): boolean {
@@ -70,7 +70,7 @@ export function getRoomLocation(roomNumber: string): RoomLocation {
     throw new Error('Invalid room number format');
   }
 
-  // Caravan: numbers starting with 00 are on floor 2, old wing
+  // Caravan: numbers starting with 0 are on floor 2, old wing
   if (isCaravanRoom(roomNumber)) {
     const lastDigit = parseInt(roomNumber.slice(-1), 10);
     const section: 'right' | 'left' | 'center' =

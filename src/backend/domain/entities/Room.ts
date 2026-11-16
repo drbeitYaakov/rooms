@@ -42,7 +42,7 @@ export class RoomEntity implements Room {
   // Static factory method to create room from room number
   static fromRoomNumber(roomNumber: string, overrides: Partial<Room> = {}): RoomEntity {
     const digits = roomNumber.replace(/\D/g, '');
-    const isCaravanNumber = roomNumber.startsWith('00');
+    const isCaravanNumber = digits.startsWith('0');
     const floor = isCaravanNumber ? 2 : (parseInt(digits[0]) || 1);
     const middleDigit = parseInt(digits[1]) || 0;
     const lastDigit = parseInt(digits[digits.length - 1]) || 0;

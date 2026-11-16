@@ -404,9 +404,14 @@ export default function RoomsPage() {
       if (!roomNumber || roomNumber.length < 3) {
         return { floor: '', wing: '', roomType: '' };
       }
+
+      if (roomNumber.startsWith('0')) {
+        return { floor: '2', wing: 'old', roomType: 'CARAVAN' };
+      }
       
       const floor = roomNumber[0];
       const middleDigit = roomNumber[1];
+      const lastDigit = roomNumber[roomNumber.length - 1];
       
       // Determine floor
       let floorValue = '';
@@ -439,7 +444,7 @@ export default function RoomsPage() {
     roomNumberInput.addEventListener('input', () => {
       const roomNumber = roomNumberInput.value.trim();
       const digitsOnly = roomNumber.replace(/\D/g, '');
-      if (digitsOnly.startsWith('00')) {
+      if (digitsOnly.startsWith('0')) {
         floorInput.value = '2';
         wingSelect.value = 'old';
         roomTypeSelect.value = 'CARAVAN';
