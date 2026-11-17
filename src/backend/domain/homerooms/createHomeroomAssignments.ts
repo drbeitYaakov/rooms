@@ -1,7 +1,7 @@
 import logger from '../../utils/logger';
 
 const SYSTEM_CREATED_BY = '9ebc15a4-6b60-5483-85df-6eb5c30ffae5';
-const INSERT_CHUNK_SIZE = 250;
+const INSERT_CHUNK_SIZE = 40;
 
 export interface HomeroomAssignmentTarget {
   id: number | string;
@@ -106,8 +106,8 @@ export async function createHomeroomAssignments(
         date: dateStr,
         start_time: '08:00',
         end_time: '14:40',
-        days_of_week: [date.getDay()],
-        time_slots: [{ start: '08:00', end: '14:40' }],
+        days_of_week: dbOrTrx.raw('?::jsonb', [JSON.stringify([date.getDay()])]),
+        time_slots: dbOrTrx.raw('?::jsonb', [JSON.stringify([{ start: '08:00', end: '14:40' }])]),
         is_manual: false,
         status: 'active',
         created_at: dbOrTrx.fn?.now ? dbOrTrx.fn.now() : new Date(),
