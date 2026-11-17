@@ -163,10 +163,10 @@ export const createBackendToken = async (session: SessionPayload, forceRefresh =
   return null;
 };
 
-const buildHeaders = (token: string, headers?: HeadersInit) => {
+const buildHeaders = (token: string, headers?: HeadersInit, isFormData = false) => {
   const normalizedHeaders = new Headers(headers);
 
-  if (!normalizedHeaders.has('Content-Type')) {
+  if (!isFormData && !normalizedHeaders.has('Content-Type')) {
     normalizedHeaders.set('Content-Type', 'application/json');
   }
 
@@ -190,9 +190,10 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
   }
 
   const executeRequest = (authToken: string) => {
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const config: RequestInit = {
       ...options,
-      headers: buildHeaders(authToken, options.headers),
+      headers: buildHeaders(authToken, options.headers, isFormData),
     };
 
     return fetch(url, config);

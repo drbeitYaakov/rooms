@@ -1,4 +1,5 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
+import multer from 'multer';
 import { db } from '../../config/database';
 import logger from '../../utils/logger';
 import {
@@ -7,6 +8,10 @@ import {
   getHomeroomName
 } from '../../domain/models/Homeroom';
 import { authMiddleware, AuthenticatedRequest } from '../../middleware/auth';
+import {
+  previewHomeroomExcelImport,
+  commitHomeroomExcelImport
+} from '../../domain/homerooms/importHomeroomsFromExcel';
 import {
   appendGradeDefaultSetting,
   appendHomeroomOverrideSetting,
@@ -28,6 +33,48 @@ import { formatAcademicYearDate, getActiveAcademicYear, getAcademicYearSchoolYea
 import { v5 as uuidv5 } from 'uuid';
 
 const router = Router();
+
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const name = (file.originalname || '').toLowerCase();
+    if (name.endsWith('.xlsx')) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('יש להעלות קובץ Excel בפורמט xlsx בלבד'));
+  }
+});
+
+function handleExcelUpload(req: Request, res: Response, next: () => void) {
+  excelUpload.single('file')(req, res, (err: any) => {
+    if (err) {
+      const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'הקובץ גדול מדי. הגודל המרבי הוא 5MB'
+        : (err.message || 'שגיאה בהעלאת הקובץ');
+      return res.status(400).json({
+        success: false,
+        error: message
+      });
+    }
+    next();
+  });
+}
+
+function isAdminUser(req: AuthenticatedRequest): boolean {
+  return String(req.user?.role || '').toLowerCase() === 'admin';
+}
+
+function getUploadedExcelBuffer(req: Request): Buffer {
+  const file = (req as Request & { file?: Express.Multer.File }).file;
+  if (!file?.buffer?.length) {
+    const error: any = new Error('לא הועלה קובץ Excel');
+    error.statusCode = 400;
+    throw error;
+  }
+  return file.buffer;
+}
 
 class HomeroomSwapConflictError extends Error {
   constructor(message: string) {
@@ -484,6 +531,59 @@ async function reassignFutureHomeroomAssignments(
 
   await trx('assignments').insert(reassignedAssignments);
 }
+
+router.post('/import-excel/preview', authMiddleware, handleExcelUpload, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!isAdminUser(req)) {
+      return res.status(403).json({
+        success: false,
+        error: 'רק מנהל יכול לייבא שיבוץ כיתות אם'
+      });
+    }
+
+    const preview = await previewHomeroomExcelImport(getUploadedExcelBuffer(req));
+    res.json({
+      success: true,
+      data: preview
+    });
+  } catch (error: any) {
+    logger.error('Error previewing homeroom excel import:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Failed to preview homeroom excel import'
+    });
+  }
+});
+
+router.post('/import-excel', authMiddleware, handleExcelUpload, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!isAdminUser(req)) {
+      return res.status(403).json({
+        success: false,
+        error: 'רק מנהל יכול לייבא שיבוץ כיתות אם'
+      });
+    }
+
+    const deleteExistingAssignments = String(req.body?.deleteExistingAssignments || '').toLowerCase() === 'true';
+    const result = await commitHomeroomExcelImport({
+      buffer: getUploadedExcelBuffer(req),
+      deleteExistingAssignments,
+      userId: req.user?.id
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error: any) {
+    logger.error('Error committing homeroom excel import:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Failed to import homeroom excel',
+      data: error.preview
+    });
+  }
+});
 
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {

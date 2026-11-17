@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { authenticatedFetch } from "../../lib/auth-backend-bridge";
@@ -77,6 +77,41 @@ interface HistoricalAssignment {
   status: string;
   is_manual: boolean;
   created_at: string;
+}
+
+interface HomeroomImportRow {
+  excelRow: number;
+  classLabel: string;
+  gradeName: string;
+  classNumber: number | null;
+  roomNumber: string;
+  action: 'create_room_and_assign' | 'assign_existing_room' | 'update_existing_homeroom' | 'skipped' | 'error';
+  message: string;
+  existingAssignmentCount: number;
+}
+
+interface HomeroomImportPreview {
+  school_year: string;
+  summary: {
+    total: number;
+    create_room_and_assign: number;
+    assign_existing_room: number;
+    update_existing_homeroom: number;
+    skipped: number;
+    errors: number;
+    rooms_with_assignments: number;
+    assignments_to_delete: number;
+  };
+  requires_delete_confirmation: boolean;
+  rooms_with_assignments: Array<{
+    room_number: string;
+    assignment_count: number;
+  }>;
+  rows: HomeroomImportRow[];
+  deleted_assignments?: number;
+  created_rooms?: number;
+  upserted_homerooms?: number;
+  created_assignments?: number;
 }
 
 interface DefaultSetting {
@@ -300,6 +335,7 @@ export default function HomeroomsPage() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const canManage = session?.user?.role === "admin" || session?.user?.role === "grade_coordinator";
+  const isAdmin = String(session?.user?.role || "").toLowerCase() === "admin";
   const [activeTab, setActiveTab] = useState<TabKey>("homerooms");
   const [loading, setLoading] = useState(true);
   const [defaultsLoading, setDefaultsLoading] = useState(true);
@@ -308,6 +344,15 @@ export default function HomeroomsPage() {
   const [defaultsData, setDefaultsData] = useState<DefaultSettingsData | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<HomeroomImportPreview | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importCommitting, setImportCommitting] = useState(false);
+  const [confirmDeleteAssignments, setConfirmDeleteAssignments] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importSuccess, setImportSuccess] = useState("");
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const [editingHomeroom, setEditingHomeroom] = useState<Homeroom | null>(null);
   const [isSubmittingHomeroom, setIsSubmittingHomeroom] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState("");
@@ -478,6 +523,105 @@ export default function HomeroomsPage() {
     const data = await response.json();
     if (!data.success) throw new Error(data.error || "הפעולה נכשלה");
     setHomerooms(data.data.homerooms);
+  };
+
+  const resetImportState = () => {
+    setImportFile(null);
+    setImportPreview(null);
+    setImportLoading(false);
+    setImportCommitting(false);
+    setConfirmDeleteAssignments(false);
+    setImportError("");
+    setImportSuccess("");
+    if (importFileInputRef.current) {
+      importFileInputRef.current.value = "";
+    }
+  };
+
+  const previewHomeroomExcel = async (file: File) => {
+    setImportLoading(true);
+    setImportError("");
+    setImportSuccess("");
+    setImportPreview(null);
+    setConfirmDeleteAssignments(false);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/import-excel/preview", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        setImportError(data.error || "שגיאה בקריאת הקובץ");
+        return;
+      }
+
+      setImportPreview(data.data);
+    } catch (error) {
+      console.error("Error previewing homeroom excel:", error);
+      setImportError("אירעה שגיאה בקריאת קובץ האקסל");
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleImportFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setImportFile(file);
+    await previewHomeroomExcel(file);
+  };
+
+  const handleCommitHomeroomImport = async () => {
+    if (!importFile || !importPreview) {
+      return;
+    }
+
+    if (importPreview.requires_delete_confirmation && !confirmDeleteAssignments) {
+      setImportError("יש לאשר מחיקת שיבוצים קיימים לפני הייבוא");
+      return;
+    }
+
+    setImportCommitting(true);
+    setImportError("");
+    setImportSuccess("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      formData.append("deleteExistingAssignments", String(confirmDeleteAssignments));
+      const response = await authenticatedFetch("https://rooms-ma9h.onrender.com/api/homerooms/import-excel", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        setImportError(data.error || "שגיאה בייבוא הקובץ");
+        if (data.data) {
+          setImportPreview(data.data);
+        }
+        return;
+      }
+
+      const result = data.data as HomeroomImportPreview;
+      setImportPreview(result);
+      setImportSuccess(
+        `הייבוא הושלם לשנת ${result.school_year}: נוצרו ${result.created_rooms || 0} חדרים, עודכנו ${result.upserted_homerooms || 0} כיתות אם, נמחקו ${result.deleted_assignments || 0} שיבוצים ונוצרו ${result.created_assignments || 0} שיבוצי כיתות אם.`
+      );
+      await loadHomerooms();
+    } catch (error) {
+      console.error("Error importing homeroom excel:", error);
+      setImportError("אירעה שגיאה בייבוא הקובץ");
+    } finally {
+      setImportCommitting(false);
+    }
   };
 
   const loadHistoricalHomerooms = async (schoolYear: string) => {
@@ -1144,9 +1288,20 @@ export default function HomeroomsPage() {
               <>
                 {canManage && (
                   <div className="mb-6 rounded-lg bg-white p-6 shadow">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                       <button onClick={() => void openSwapModal()} className="rounded-md bg-amber-600 px-4 py-3 text-sm font-medium text-white">החלפת חדרים</button>
                       <button onClick={() => setShowAddModal(true)} className="rounded-md bg-indigo-600 px-4 py-3 text-sm font-medium text-white">הוסף כיתת אם</button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => {
+                            resetImportState();
+                            setShowImportModal(true);
+                          }}
+                          className="rounded-md bg-orange-600 px-4 py-3 text-sm font-medium text-white"
+                        >
+                          ייבוא מאקסל
+                        </button>
+                      )}
                       <button onClick={() => { window.location.href = "/grades"; }} className="rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white">ניהול שכבות</button>
                       <button onClick={() => void handleUtilizationReport()} disabled={isExportingUtilizationReport} className="rounded-md bg-green-600 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"><ButtonLoadingContent loading={isExportingUtilizationReport} loadingText="מייצא...">דוח תפוסה</ButtonLoadingContent></button>
                     </div>
@@ -1581,6 +1736,113 @@ export default function HomeroomsPage() {
           </>
         )}
       </div>
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-gray-600 bg-opacity-50">
+          <div className="relative top-10 mx-auto mb-10 w-[min(920px,95%)] rounded-md border bg-white p-5 shadow-lg">
+            <h3 className="mb-2 text-lg font-medium text-gray-900">ייבוא שיבוץ כיתות אם מאקסל</h3>
+            <p className="mb-4 text-sm text-gray-600">
+              המערכת קוראת רק את הגיליון &quot;שיבוץ כיתות אם&quot;. אם החדר קיים הוא ישובץ; אם לא — ייווצר חדר ואז ישובץ.
+            </p>
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".xlsx"
+              onChange={(event) => void handleImportFileChange(event)}
+              className="mb-4 block w-full text-sm text-gray-700"
+            />
+
+            {importLoading && <div className="mb-4 text-sm text-gray-600">קורא את הקובץ...</div>}
+            {importError && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{importError}</div>}
+            {importSuccess && <div className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{importSuccess}</div>}
+
+            {importPreview && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                  <div className="rounded-md bg-gray-50 p-3">שנה: <b>{importPreview.school_year}</b></div>
+                  <div className="rounded-md bg-gray-50 p-3">שורות: <b>{importPreview.summary.total}</b></div>
+                  <div className="rounded-md bg-gray-50 p-3">חדרי חדשים: <b>{importPreview.summary.create_room_and_assign}</b></div>
+                  <div className="rounded-md bg-gray-50 p-3">שגיאות: <b>{importPreview.summary.errors}</b></div>
+                </div>
+
+                {importPreview.requires_delete_confirmation && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
+                    <p className="mb-3 text-sm text-amber-900">
+                      לחדרים שבקובץ יש {importPreview.summary.assignments_to_delete} שיבוצים קיימים ב-{importPreview.summary.rooms_with_assignments} חדרים.
+                      כדי לשבץ כיתות אם לפי הפונקציה הרגילה צריך למחוק קודם את השיבוצים האלה.
+                    </p>
+                    <label className="flex items-start gap-2 text-sm text-amber-950">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={confirmDeleteAssignments}
+                        onChange={(event) => setConfirmDeleteAssignments(event.target.checked)}
+                      />
+                      <span>אני מאשר/ת למחוק את השיבוצים הקיימים בחדרים האלה, ואז לשבץ מחדש כיתות אם</span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="max-h-72 overflow-auto rounded-md border">
+                  <table className="min-w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-right">כיתה</th>
+                        <th className="px-3 py-2 text-right">חדר</th>
+                        <th className="px-3 py-2 text-right">פעולה</th>
+                        <th className="px-3 py-2 text-right">פירוט</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.rows.map((row) => (
+                        <tr key={`${row.excelRow}-${row.classLabel}`} className="border-t">
+                          <td className="px-3 py-2">{row.classLabel || "-"}</td>
+                          <td className="px-3 py-2">{row.roomNumber || "-"}</td>
+                          <td className="px-3 py-2">
+                            {row.action === "create_room_and_assign" && "יצירת חדר ושיבוץ"}
+                            {row.action === "assign_existing_room" && "שיבוץ לחדר קיים"}
+                            {row.action === "update_existing_homeroom" && "העברת כיתה לחדר"}
+                            {row.action === "skipped" && "כבר משובצת"}
+                            {row.action === "error" && "שגיאה"}
+                          </td>
+                          <td className="px-3 py-2 text-gray-600">{row.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowImportModal(false);
+                  resetImportState();
+                }}
+                className="rounded-md bg-gray-300 px-4 py-2 text-gray-800"
+              >
+                סגור
+              </button>
+              <button
+                onClick={() => void handleCommitHomeroomImport()}
+                disabled={
+                  !importPreview ||
+                  importLoading ||
+                  importCommitting ||
+                  !!importSuccess ||
+                  (importPreview.requires_delete_confirmation && !confirmDeleteAssignments)
+                }
+                className="rounded-md bg-orange-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+              >
+                <ButtonLoadingContent loading={importCommitting} loadingText="מייבא...">
+                  אשר ייבוא
+                </ButtonLoadingContent>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSwapModal && (
         <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-gray-600 bg-opacity-50">
